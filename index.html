@@ -39,6 +39,12 @@
       return siswa;
     };
 
+    // State global memori untuk demo Rekap Harian
+    let mockTodayRecords = [
+      { id: 1, waktu: '07:15', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', kategori: 'Terlambat Masuk Sekolah', poin: '-5', petugas: 'Admin SMANDACIS' },
+      { id: 2, waktu: '07:20', nama: 'Bunga Lestari', kelas: 'XI/Fase F-2', kategori: 'Atribut Tidak Lengkap', poin: '-10', petugas: 'Admin SMANDACIS' }
+    ];
+
     const apiCall = (action, payload) => {
       return new Promise((resolve, reject) => {
         if (typeof google !== 'undefined' && google.script) {
@@ -56,26 +62,94 @@
               success: true, 
               siswa: mockSiswa,
               kategori: [
-                // KEDISIPLINAN WAKTU
                 {ID:'K1', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Terlambat Masuk Sekolah', Poin:'-5', Kriteria:'Bener', Desc:'Datang setelah bel masuk berbunyi.'}, 
                 {ID:'K2', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Membolos / Alpa', Poin:'-20', Kriteria:'Bener', Desc:'Tidak hadir tanpa keterangan.'},
                 {ID:'K3', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Keluar Kelas Tanpa Izin', Poin:'-5', Kriteria:'Bener', Desc:'Meninggalkan KBM tanpa izin guru.'},
-                
-                // KERAPIAN & ATRIBUT
                 {ID:'K4', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Kriteria:'Bener', Desc:'Tidak memakai seragam sesuai ketentuan.'},
                 {ID:'K5', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Sepatu Tidak Hitam', Poin:'-5', Kriteria:'Bener', Desc:'Melanggar ketentuan warna sepatu.'},
                 {ID:'K6', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Rambut Gondrong / Dicat', Poin:'-10', Kriteria:'Bener', Desc:'Rambut tidak rapi atau diwarnai.'},
-                
-                // KETERTIBAN & ETIKA
                 {ID:'K7', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Membawa / Merokok', Poin:'-50', Kriteria:'Cageur', Desc:'Membawa rokok atau merokok di sekolah.'},
                 {ID:'K8', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Berkelahi / Kekerasan', Poin:'-75', Kriteria:'Bageur', Desc:'Terlibat perkelahian fisik.'},
-                
-                // PRESTASI
                 {ID:'K10', Group: 'Prestasi Akademik', Jenis:'Prestasi', NamaKategori:'Juara 1 Tingkat Kabupaten', Poin:'50', Kriteria:'Pinter', Desc:'Membawa nama baik sekolah.'}
               ]
             });
             else if (action === 'GET_SISWA_HISTORY') resolve({ success: true, data: [{ Tanggal:'2026-07-16', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Petugas:'Admin' }]});
-            else if (action === 'SUBMIT_RECORDS') resolve({ success: true, message: 'Disimpan.'});
+            else if (action === 'GET_TODAY_RECORDS') {
+              resolve({ success: true, data: mockTodayRecords });
+            }
+            else if (action === 'GET_CRITICAL_STUDENTS') {
+              resolve({ success: true, data: [
+                { NISN: '1005', Nama: 'Deni Saputra', Kelas: 'XII/Fase Lanjutan-1', SisaPoin: 45, Status: 'Wali Kelas' },
+                { NISN: '1010', Nama: 'Eka Wardana', Kelas: 'X/Fase E-3', SisaPoin: 15, Status: 'Guru BK / Surat Peringatan' }
+              ]});
+            }
+            else if (action === 'SUBMIT_RECORDS') {
+              const now = new Date();
+              const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+              
+              let duplicateMessages = [];
+              let addedCount = 0;
+
+              if (payload.mode === 'masal') {
+                 payload.siswa.forEach(s => {
+                   const isDuplicate = mockTodayRecords.find(r => r.nama === s.Nama && r.kategori === payload.kategori.NamaKategori);
+                   if (isDuplicate) {
+                     duplicateMessages.push(s.Nama);
+                   } else {
+                     mockTodayRecords.unshift({
+                       id: Date.now() + Math.random(),
+                       waktu: timeStr,
+                       nama: s.Nama,
+                       kelas: s.Kelas,
+                       kategori: payload.kategori.NamaKategori,
+                       poin: payload.kategori.Poin,
+                       petugas: payload.petugas.nama
+                     });
+                     addedCount++;
+                   }
+                 });
+              } else {
+                 payload.records.forEach(r => {
+                   const isDuplicate = mockTodayRecords.find(tr => tr.nama === payload.namaSiswa && tr.kategori === r.namaKategori);
+                   if (isDuplicate) {
+                     duplicateMessages.push(r.namaKategori);
+                   } else {
+                     mockTodayRecords.unshift({
+                       id: Date.now() + Math.random(),
+                       waktu: timeStr,
+                       nama: payload.namaSiswa,
+                       kelas: payload.kelas,
+                       kategori: r.namaKategori,
+                       poin: r.poin,
+                       petugas: payload.petugas.nama
+                     });
+                     addedCount++;
+                   }
+                 });
+              }
+
+              let waMessage = "";
+              let maxPoinSatuSiswa = 0;
+              if (payload.mode === 'masal') {
+                 maxPoinSatuSiswa = Math.abs(parseInt(payload.kategori.Poin));
+              } else {
+                 maxPoinSatuSiswa = payload.records.reduce((acc, r) => acc + Math.abs(parseInt(r.poin)), 0);
+              }
+
+              if (maxPoinSatuSiswa >= 75) {
+                 waMessage = "\n\n🔔 [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Guru BK!";
+              } else if (maxPoinSatuSiswa >= 50) {
+                 waMessage = "\n\n🔔 [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Wali Kelas!";
+              }
+
+              if (duplicateMessages.length > 0 && addedCount === 0) {
+                 resolve({ success: false, message: 'DITOLAK: Data tersebut sudah pernah diinput untuk siswa ini pada hari ini!' });
+              } else if (duplicateMessages.length > 0 && addedCount > 0) {
+                 resolve({ success: true, message: `Disimpan ${addedCount} data. (${duplicateMessages.length} data ditolak karena sudah pernah diinput hari ini).` + waMessage});
+              } else {
+                 resolve({ success: true, message: 'Data berhasil direkam ke sistem.' + waMessage});
+              }
+            }
             else resolve({ success: false, message: 'Gagal' });
           }, 400);
         }
@@ -90,14 +164,14 @@
 
       useEffect(() => {
         try {
-          const savedUser = localStorage.getItem('gapura_user_v8');
+          const savedUser = localStorage.getItem('gapura_user_v9');
           if (savedUser && savedUser !== 'undefined') setUser(JSON.parse(savedUser));
         } catch (e) {}
         setLoading(false);
       }, []);
 
-      const handleLogin = (u) => { setUser(u); localStorage.setItem('gapura_user_v8', JSON.stringify(u)); };
-      const handleLogout = () => { setUser(null); localStorage.removeItem('gapura_user_v8'); };
+      const handleLogin = (u) => { setUser(u); localStorage.setItem('gapura_user_v9', JSON.stringify(u)); };
+      const handleLogout = () => { setUser(null); localStorage.removeItem('gapura_user_v9'); };
 
       if (loading) return null;
       
@@ -110,12 +184,15 @@
                    <i className="fa-solid fa-shield-halved text-2xl text-blue-700"></i>
                 </div>
                 <div>
-                  <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white">Pancawaluya</h1>
-                  <p className="text-xs text-blue-200 font-medium tracking-[0.15em] uppercase mt-0.5">SMAN 2 Ciamis</p>
+                  <p className="text-[10px] lg:text-xs text-blue-200 font-light tracking-[0.2em] uppercase opacity-90 mb-0.5">Pembentukan Karakter</p>
+                  <div className="flex items-baseline gap-2">
+                     <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white">Gapura Pancawaluya</h1>
+                     <span className="text-lg lg:text-xl font-light text-white opacity-90 tracking-wide">SMAN 2 CIAMIS</span>
+                  </div>
                 </div>
               </div>
               {user && (
-                <button onClick={handleLogout} className="text-sm bg-blue-800 hover:bg-blue-900 text-white px-4 py-2.5 rounded-xl transition-all border border-blue-600 flex items-center gap-2">
+                <button onClick={handleLogout} className="text-sm bg-blue-800 hover:bg-blue-900 text-white px-4 py-2.5 rounded-xl transition-all border border-blue-600 flex items-center gap-2 shadow-inner">
                   <i className="fa-solid fa-arrow-right-from-bracket"></i> <span className="hidden sm:inline">Keluar</span>
                 </button>
               )}
@@ -250,18 +327,25 @@
     function DashboardAdmin({ user }) {
       const [masterData, setMasterData] = useState({ siswa: [], kategori: [] });
       const [loading, setLoading] = useState(true);
-      const [inputMode, setInputMode] = useState('masal'); // 'individu' or 'masal'
+      const [activeMenu, setActiveMenu] = useState('overview'); // 'overview' | 'masal' | 'individu' | 'rekap' | 'pembinaan'
       const [submitting, setSubmitting] = useState(false);
       
-      // State Mode Individu
       const [selectedSiswa, setSelectedSiswa] = useState(null);
       const [cartIndividu, setCartIndividu] = useState([]);
       
-      // State Mode Masal (Touch/Grid)
       const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
       const [cartMasalSiswa, setCartMasalSiswa] = useState([]);
       const [filterKelas, setFilterKelas] = useState('');
       const [searchNama, setSearchNama] = useState('');
+
+      const [rekapHariIni, setRekapHariIni] = useState([]);
+      const [criticalStudents, setCriticalStudents] = useState([]);
+
+      const fetchRekap = () => {
+        apiCall('GET_TODAY_RECORDS', {}).then(res => {
+          if (res.success) setRekapHariIni(res.data);
+        });
+      };
 
       useEffect(() => {
         apiCall('GET_MASTER_DATA', {}).then(res => {
@@ -272,7 +356,16 @@
           }
           setLoading(false);
         });
+        fetchRekap();
+        apiCall('GET_CRITICAL_STUDENTS', {}).then(res => {
+          if (res.success) setCriticalStudents(res.data);
+        });
       }, []);
+
+      // Saat pindah ke tab rekap, fetch ulang
+      useEffect(() => {
+        if(activeMenu === 'rekap') fetchRekap();
+      }, [activeMenu]);
 
       const groupedKategori = useMemo(() => {
         const groups = {};
@@ -284,7 +377,6 @@
         return groups;
       }, [masterData.kategori]);
 
-      // --- LOGIKA FILTER MODE MASAL (TANPA KETIK BARCODE) ---
       const uniqueClasses = useMemo(() => {
         return [...new Set(masterData.siswa.map(s => s.Kelas))].sort();
       }, [masterData.siswa]);
@@ -296,7 +388,7 @@
           const lower = searchNama.toLowerCase();
           filtered = filtered.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
         }
-        return filtered.slice(0, 100); // Batasi 100 agar DOM tidak berat
+        return filtered.slice(0, 100); 
       }, [masterData.siswa, filterKelas, searchNama]);
 
       const toggleStudentMasal = (s) => {
@@ -308,7 +400,6 @@
         }
       }
 
-      // --- SUBMIT ---
       const submitMasal = async () => {
         if(cartMasalSiswa.length === 0 || !selectedKategoriMasal) return;
         setSubmitting(true);
@@ -316,51 +407,210 @@
         const res = await apiCall('SUBMIT_RECORDS', payload);
         setSubmitting(false);
         if (res.success) {
-          alert(`${cartMasalSiswa.length} Siswa berhasil direkam untuk pelanggaran: ${selectedKategoriMasal.NamaKategori}`);
+          alert(res.message);
           setCartMasalSiswa([]);
-        } else alert('Gagal menyimpan.');
+        } else alert(res.message);
       }
+
+      const addToCart = (k) => { setCartIndividu([...cartIndividu, { ...k, uniqueId: Date.now() + Math.random() }]); };
 
       const submitIndividu = async () => {
         if (!selectedSiswa || cartIndividu.length === 0) return;
         setSubmitting(true);
         const records = cartIndividu.map(c => ({ idKategori: c.ID, namaKategori: c.NamaKategori, poin: c.Poin }));
-        const payload = { tanggal: new Date().toISOString().split('T')[0], kelas: selectedSiswa.Kelas, nisn: selectedSiswa.NISN, namaSiswa: selectedSiswa.Nama, records, petugas: user };
+        const payload = { mode: 'individu', tanggal: new Date().toISOString().split('T')[0], kelas: selectedSiswa.Kelas, nisn: selectedSiswa.NISN, namaSiswa: selectedSiswa.Nama, records, petugas: user };
         
         const res = await apiCall('SUBMIT_RECORDS', payload);
         setSubmitting(false);
         if (res.success) {
-          alert('Data karakter berhasil direkam ke sistem.');
+          alert(res.message);
           setSelectedSiswa(null);
           setCartIndividu([]);
-        } else alert('Gagal: ' + res.message);
+        } else alert(res.message);
       };
 
       if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">MEMUAT DATABASE...</div>;
 
+      const menuItems = [
+        { id: 'overview', icon: 'fa-chart-pie', label: 'Dashboard', color: 'text-indigo-600' },
+        { id: 'masal', icon: 'fa-bolt', label: 'Piket Pagi', color: 'text-amber-500' },
+        { id: 'individu', icon: 'fa-user-pen', label: 'Mode Detail', color: 'text-blue-600' },
+        { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekap Harian', color: 'text-emerald-600' },
+        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: criticalStudents.length }
+      ];
+
       return (
-        <div className="animate-[fade-in_0.4s_ease-out]">
+        <div className="flex flex-col md:flex-row gap-6 animate-[fade-in_0.4s_ease-out] pb-20 md:pb-0">
           
-          {/* TAB MODE SWITCHER */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 inline-flex flex-col sm:flex-row w-full sm:w-auto">
-              <button 
-                onClick={() => setInputMode('masal')}
-                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${inputMode === 'masal' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <i className="fa-solid fa-bolt"></i> Mode Masal (Sistem Sentuh)
-              </button>
-              <button 
-                onClick={() => setInputMode('individu')}
-                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-2 sm:mt-0 ${inputMode === 'individu' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <i className="fa-solid fa-user-pen"></i> Mode Detail (Per Siswa)
-              </button>
+          {/* SIDEBAR DESKTOP */}
+          <div className="hidden md:flex flex-col w-64 flex-shrink-0 gap-2">
+            <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-slate-200 sticky top-24">
+              <div className="text-center mb-6 pt-4">
+                 <div className="w-16 h-16 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto text-2xl font-black mb-3">{user.nama.charAt(0)}</div>
+                 <h3 className="font-bold text-slate-800">{user.nama}</h3>
+                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{user.role}</p>
+              </div>
+              <nav className="flex flex-col gap-2">
+                {menuItems.map(m => (
+                  <button 
+                    key={m.id} onClick={() => setActiveMenu(m.id)}
+                    className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm ${activeMenu === m.id ? 'bg-slate-800 text-white shadow-lg shadow-slate-300 translate-x-1' : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+                  >
+                    <i className={`fa-solid ${m.icon} w-5 text-center ${activeMenu === m.id ? 'text-white' : m.color}`}></i>
+                    <span className="flex-1 text-left">{m.label}</span>
+                    {m.badge > 0 && <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeMenu === m.id ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600'}`}>{m.badge}</span>}
+                  </button>
+                ))}
+              </nav>
             </div>
           </div>
 
-          {inputMode === 'masal' ? (
-            /* --- MODE PIKET PAGI (MASAL - SISTEM SENTUH/GRID) --- */
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 w-full min-w-0">
+          
+          {/* KONTEN BERDASARKAN MODE */}
+          {activeMenu === 'overview' ? (
+              <div className="space-y-6 animate-[fade-in_0.3s_ease-out]">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
+                       <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-users"></i></div>
+                       <div><p className="text-sm font-bold text-slate-500">Total Siswa</p><p className="text-3xl font-black text-slate-800">{masterData.siswa.length}</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
+                       <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-clipboard-check"></i></div>
+                       <div><p className="text-sm font-bold text-slate-500">Aktivitas Hari Ini</p><p className="text-3xl font-black text-slate-800">{rekapHariIni.length}</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5 relative overflow-hidden">
+                       <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-2xl relative z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
+                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Siswa Kritis</p><p className="text-3xl font-black text-red-600">{criticalStudents.length}</p></div>
+                       {criticalStudents.length > 0 && <div className="absolute top-0 right-0 w-32 h-32 bg-red-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10 animate-pulse"></div>}
+                    </div>
+                 </div>
+
+                 {/* Welcome Banner */}
+                 <div className="bg-blue-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-blue-600/20">
+                    <div className="relative z-10 md:w-2/3">
+                      <h2 className="text-2xl font-black mb-2">Selamat Datang di GDS Dashboard!</h2>
+                      <p className="text-blue-100 text-sm leading-relaxed mb-6">Pilih menu di sebelah kiri (atau di bawah jika di HP) untuk mulai merekam pelanggaran/prestasi, melihat rekap harian, atau menindaklanjuti siswa yang memerlukan pembinaan karakter.</p>
+                      <button onClick={() => setActiveMenu('masal')} className="bg-white text-blue-700 px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-50 transition-colors flex items-center gap-2">
+                        <i className="fa-solid fa-bolt"></i> Mulai Piket Masal
+                      </button>
+                    </div>
+                    <i className="fa-solid fa-shield-halved absolute -right-10 -bottom-10 text-[15rem] text-blue-500 opacity-30 transform -rotate-12"></i>
+                 </div>
+                 
+                 {/* Mini Alert for Critical */}
+                 {criticalStudents.length > 0 && (
+                    <div onClick={() => setActiveMenu('pembinaan')} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-red-100 transition-colors">
+                      <div className="flex items-center gap-4">
+                         <div className="bg-white text-red-600 w-10 h-10 rounded-full flex items-center justify-center shadow-sm"><i className="fa-solid fa-bell animate-pulse"></i></div>
+                         <div><p className="font-bold text-red-700 text-sm">Peringatan Dini Aktif</p><p className="text-xs text-red-600">{criticalStudents.length} siswa menunggu tindak lanjut.</p></div>
+                      </div>
+                      <i className="fa-solid fa-chevron-right text-red-400"></i>
+                    </div>
+                 )}
+              </div>
+          ) : activeMenu === 'pembinaan' ? (
+            
+            /* --- 🛡️ MODE DAFTAR PEMBINAAN --- */
+            <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
+               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-xl text-red-600"><i className="fa-solid fa-triangle-exclamation w-5 text-center"></i></div>
+                    Siswa Membutuhkan Tindak Lanjut Pembinaan
+                  </h2>
+               </div>
+               
+               <p className="text-sm text-slate-500 mb-6">Daftar di bawah ini adalah siswa-siswa yang skor akumulasi karakternya telah berada pada titik kritis. Segera hubungi Wali Kelas atau Guru BK untuk melakukan panggilan/pembinaan sesuai SOP SMAN 2 Ciamis.</p>
+
+               <div className="grid gap-4">
+                 {criticalStudents.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                      <i className="fa-solid fa-check-circle text-4xl mb-3 opacity-30 text-green-500"></i>
+                      <p className="text-sm font-medium">Luar Biasa! Saat ini tidak ada siswa yang berada pada batas kritis pembinaan.</p>
+                    </div>
+                 ) : (
+                    criticalStudents.map(s => (
+                      <div key={s.NISN} className="bg-white border-2 border-red-100 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-red-300 transition-colors shadow-sm">
+                         <div className="flex items-center gap-5">
+                            <div className="bg-red-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-red-200">
+                               <span className="text-[10px] uppercase font-bold text-red-400 mb-0.5">Skor</span>
+                               <span className="text-2xl font-black text-red-600 leading-none">{s.SisaPoin}</span>
+                            </div>
+                            <div>
+                               <h3 className="text-lg font-bold text-slate-800">{s.Nama}</h3>
+                               <p className="text-sm text-slate-500 font-mono mt-1">{s.NISN} &bull; <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-sans font-bold">{s.Kelas}</span></p>
+                            </div>
+                         </div>
+                         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                            <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold border border-orange-200 w-full md:w-auto text-center">
+                              Tindak Lanjut: {s.Status}
+                            </div>
+                            <button className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all w-full md:w-auto flex items-center justify-center gap-2">
+                               <i className="fa-solid fa-check"></i> Tandai Telah Dibina
+                            </button>
+                         </div>
+                      </div>
+                    ))
+                 )}
+               </div>
+            </div>
+
+          ) : activeMenu === 'rekap' ? (
+            
+            /* --- 📅 MODE REKAP HARI INI --- */
+            <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
+               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600"><i className="fa-solid fa-calendar-day w-5 text-center"></i></div>
+                    Daftar Pelanggaran & Prestasi Hari Ini
+                  </h2>
+                  <button onClick={fetchRekap} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-bold flex items-center gap-2 shadow-sm">
+                    <i className="fa-solid fa-rotate text-emerald-600"></i> Segarkan Data
+                  </button>
+               </div>
+               
+               <p className="text-sm text-slate-500 mb-6">Tabel ini menampilkan daftar tindakan siswa yang diinput oleh seluruh tim GDS pada hari ini. Sangat berguna untuk memitigasi langkah pembinaan sebelum data direkap ke sheet akumulasi bulanan.</p>
+
+               <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                 <table className="w-full text-sm text-left">
+                   <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                     <tr>
+                       <th className="px-5 py-4">Waktu</th>
+                       <th className="px-5 py-4">Nama Siswa</th>
+                       <th className="px-5 py-4">Kelas</th>
+                       <th className="px-5 py-4">Tindakan / Karakter</th>
+                       <th className="px-5 py-4 text-center">Poin</th>
+                       <th className="px-5 py-4">Petugas GDS</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100">
+                      {rekapHariIni.length === 0 ? (
+                        <tr><td colSpan="6" className="px-5 py-10 text-center text-slate-400 italic">Belum ada data tindakan yang tercatat hari ini.</td></tr>
+                      ) : (
+                        rekapHariIni.map(r => (
+                          <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                             <td className="px-5 py-4 font-mono text-slate-500 text-xs">{r.waktu}</td>
+                             <td className="px-5 py-4 font-bold text-slate-800">{r.nama}</td>
+                             <td className="px-5 py-4 text-slate-600"><span className="bg-slate-100 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">{r.kelas}</span></td>
+                             <td className="px-5 py-4 text-slate-600 font-medium">{r.kategori}</td>
+                             <td className="px-5 py-4 text-center">
+                               <span className={`inline-block border px-2 py-1 rounded-md font-black text-xs ${parseInt(r.poin) < 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
+                                 {parseInt(r.poin) > 0 ? `+${r.poin}` : r.poin}
+                               </span>
+                             </td>
+                             <td className="px-5 py-4 text-slate-400 text-xs font-medium">{r.petugas}</td>
+                          </tr>
+                        ))
+                      )}
+                   </tbody>
+                 </table>
+               </div>
+            </div>
+
+          ) : activeMenu === 'masal' ? (
+            
+            /* --- ⚡ MODE PIKET PAGI (MASAL) --- */
             <div className="grid lg:grid-cols-12 gap-8">
                <div className="lg:col-span-7 space-y-6">
                  
@@ -400,7 +650,7 @@
                        <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span> 
                        Pilih Siswa (Tap/Klik Langsung)
                      </h2>
-                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang melanggar. Tidak perlu mengetik sama sekali!</p>
+                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang melanggar. Tidak perlu mengetik!</p>
                      
                      <div className="flex flex-col sm:flex-row gap-3 mb-5">
                        <div className="flex-1 relative">
@@ -423,7 +673,6 @@
                        </div>
                      </div>
 
-                     {/* Grid Nama Siswa */}
                      <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
                         {availableStudentsForMasal.length === 0 ? (
                            <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
@@ -497,7 +746,7 @@
 
           ) : (
 
-            /* --- MODE INDIVIDU --- */
+            /* --- 📝 MODE INDIVIDU --- */
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-7 space-y-6">
                 
@@ -526,7 +775,7 @@
                   )}
                 </div>
 
-                {/* 2. Kategori Grouped (Klik Mudah) */}
+                {/* 2. Kategori Grouped */}
                 <div className={`transition-all duration-500 ${selectedSiswa ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-4'}`}>
                   <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
                     <h2 className="text-lg font-bold mb-2 flex items-center gap-3 text-slate-800">
@@ -605,6 +854,22 @@
               </div>
             </div>
           )}
+          </div>
+          {/* BOTTOM NAV MOBILE */}
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-between px-2 pb-safe pt-2 z-50 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+            {menuItems.map(m => (
+              <button 
+                key={m.id} onClick={() => setActiveMenu(m.id)}
+                className={`relative flex flex-col items-center justify-center w-full py-2 rounded-xl transition-all ${activeMenu === m.id ? 'text-blue-700' : 'text-slate-400 hover:bg-slate-50'}`}
+              >
+                <div className={`w-10 h-8 flex items-center justify-center rounded-full mb-1 transition-all ${activeMenu === m.id ? 'bg-blue-100 text-blue-700 scale-110' : ''}`}>
+                  <i className={`fa-solid ${m.icon} text-lg ${activeMenu === m.id ? '' : m.color}`}></i>
+                </div>
+                <span className={`text-[9px] font-bold tracking-wide ${activeMenu === m.id ? 'opacity-100' : 'opacity-70'}`}>{m.label}</span>
+                {m.badge > 0 && <span className="absolute top-1 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+              </button>
+            ))}
+          </nav>
         </div>
       );
     }
