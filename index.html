@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gapura Pancawaluya - SMAN 2 Ciamis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.4); }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans pb-10 selection:bg-blue-200">
+
+  <div id="root"></div>
+
+  <!-- BINDING & MOCKUP DATA LOKAL -->
+  <script>
+    const { useState, useEffect, useMemo, useRef } = React;
+    
+    // DEMO DATA 
+    const generateMockSiswa = () => {
+      let siswa = [];
+      let nisnCounter = 1000;
+      const tingkatan = [{ p: 'X/Fase E', c: 12 }, { p: 'XI/Fase F', c: 12 }, { p: 'XII/Fase Lanjutan', c: 12 }];
+      tingkatan.forEach(t => {
+        for(let i=1; i<=t.c; i++) {
+          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Ade Kurniawan`, Kelas: `${t.p}-${i}` });
+          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Bunga Lestari`, Kelas: `${t.p}-${i}` });
+          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Candra Wijaya`, Kelas: `${t.p}-${i}` });
+        }
+      });
+      return siswa;
+    };
+
+    const apiCall = (action, payload) => {
+      return new Promise((resolve, reject) => {
+        if (typeof google !== 'undefined' && google.script) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).processRequest(action, payload);
+        } else {
+          const mockSiswa = generateMockSiswa();
+          setTimeout(() => {
+            if (action === 'LOGIN_ADMIN' && payload.nip === 'admin') resolve({ success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'GDS' }});
+            else if (action === 'LOGIN_SISWA') {
+              const s = mockSiswa.find(x => x.NISN === payload.nisn);
+              if (s) resolve({ success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' }});
+              else resolve({ success: false, message: 'NISN tidak ditemukan.' });
+            }
+            else if (action === 'GET_MASTER_DATA') resolve({
+              success: true, 
+              siswa: mockSiswa,
+              kategori: [
+                // KEDISIPLINAN WAKTU
+                {ID:'K1', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Terlambat Masuk Sekolah', Poin:'-5', Kriteria:'Bener', Desc:'Datang setelah bel masuk berbunyi.'}, 
+                {ID:'K2', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Membolos / Alpa', Poin:'-20', Kriteria:'Bener', Desc:'Tidak hadir tanpa keterangan.'},
+                {ID:'K3', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Keluar Kelas Tanpa Izin', Poin:'-5', Kriteria:'Bener', Desc:'Meninggalkan KBM tanpa izin guru.'},
+                
+                // KERAPIAN & ATRIBUT
+                {ID:'K4', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Kriteria:'Bener', Desc:'Tidak memakai seragam sesuai ketentuan.'},
+                {ID:'K5', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Sepatu Tidak Hitam', Poin:'-5', Kriteria:'Bener', Desc:'Melanggar ketentuan warna sepatu.'},
+                {ID:'K6', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Rambut Gondrong / Dicat', Poin:'-10', Kriteria:'Bener', Desc:'Rambut tidak rapi atau diwarnai.'},
+                
+                // KETERTIBAN & ETIKA
+                {ID:'K7', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Membawa / Merokok', Poin:'-50', Kriteria:'Cageur', Desc:'Membawa rokok atau merokok di sekolah.'},
+                {ID:'K8', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Berkelahi / Kekerasan', Poin:'-75', Kriteria:'Bageur', Desc:'Terlibat perkelahian fisik.'},
+                
+                // PRESTASI
+                {ID:'K10', Group: 'Prestasi Akademik', Jenis:'Prestasi', NamaKategori:'Juara 1 Tingkat Kabupaten', Poin:'50', Kriteria:'Pinter', Desc:'Membawa nama baik sekolah.'}
+              ]
+            });
+            else if (action === 'GET_SISWA_HISTORY') resolve({ success: true, data: [{ Tanggal:'2026-07-16', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Petugas:'Admin' }]});
+            else if (action === 'SUBMIT_RECORDS') resolve({ success: true, message: 'Disimpan.'});
+            else resolve({ success: false, message: 'Gagal' });
+          }, 400);
+        }
+      });
+    };
+  </script>
+
+  <script type="text/babel">
+    function App() {
+      const [user, setUser] = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        try {
+          const savedUser = localStorage.getItem('gapura_user_v8');
+          if (savedUser && savedUser !== 'undefined') setUser(JSON.parse(savedUser));
+        } catch (e) {}
+        setLoading(false);
+      }, []);
+
+      const handleLogin = (u) => { setUser(u); localStorage.setItem('gapura_user_v8', JSON.stringify(u)); };
+      const handleLogout = () => { setUser(null); localStorage.removeItem('gapura_user_v8'); };
+
+      if (loading) return null;
+      
+      return (
+        <div className="animate-[fade-in_0.3s_ease-out]">
+          <header className="bg-blue-700 shadow-md sticky top-0 z-40">
+            <div className="container mx-auto max-w-7xl px-4 py-3 lg:px-8 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                   <i className="fa-solid fa-shield-halved text-2xl text-blue-700"></i>
+                </div>
+                <div>
+                  <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white">Pancawaluya</h1>
+                  <p className="text-xs text-blue-200 font-medium tracking-[0.15em] uppercase mt-0.5">SMAN 2 Ciamis</p>
+                </div>
+              </div>
+              {user && (
+                <button onClick={handleLogout} className="text-sm bg-blue-800 hover:bg-blue-900 text-white px-4 py-2.5 rounded-xl transition-all border border-blue-600 flex items-center gap-2">
+                  <i className="fa-solid fa-arrow-right-from-bracket"></i> <span className="hidden sm:inline">Keluar</span>
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main className="container mx-auto max-w-7xl p-4 lg:p-8 mt-2">
+            {!user ? <Login onLogin={handleLogin} /> : (user.role === 'Siswa' ? <DashboardSiswa user={user} /> : <DashboardAdmin user={user} />)}
+          </main>
+        </div>
+      );
+    }
+
+    function Login({ onLogin }) {
+      const [role, setRole] = useState('Admin');
+      const [nip, setNip] = useState('admin'); 
+      const [password, setPassword] = useState('admin'); 
+      const [nisn, setNisn] = useState('1000'); 
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true); setError('');
+        try {
+          const res = await apiCall(role === 'Admin' ? 'LOGIN_ADMIN' : 'LOGIN_SISWA', role === 'Admin' ? { nip, password } : { nisn });
+          if (res.success) onLogin(res.user); else setError(res.message);
+        } catch (err) { setError('Kesalahan koneksi.'); }
+        setLoading(false);
+      };
+
+      return (
+        <div className="bg-white rounded-[2rem] p-8 lg:p-12 shadow-xl border border-slate-100 max-w-md mx-auto mt-10 relative overflow-hidden animate-[fade-in_0.3s_ease-out]">
+          <div className="relative z-10">
+            <h2 className="text-2xl font-bold mb-8 text-center text-slate-800">Sistem Login</h2>
+            
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
+              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Admin')}>Petugas GDS</button>
+              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Siswa')}>Siswa</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {role === 'Admin' ? (
+                <>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">Username / NIP</label>
+                    <input type="text" required value={nip} onChange={e=>setNip(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">Password</label>
+                    <input type="password" required value={password} onChange={e=>setPassword(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">NISN / NIS</label>
+                  <input type="text" required value={nisn} onChange={e=>setNisn(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-center text-xl tracking-widest font-mono transition-all" placeholder="1000" />
+                </div>
+              )}
+              
+              {error && <div className="text-red-700 text-sm bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3"><i className="fa-solid fa-triangle-exclamation mt-0.5 text-red-500"></i> <p>{error}</p></div>}
+              
+              <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 mt-8 transition-all flex justify-center items-center gap-2">
+                {loading ? 'Memverifikasi...' : <><span className="tracking-wide">Masuk Dashboard</span> <i className="fa-solid fa-chevron-right"></i></>}
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function StudentSelector({ students, onSelect }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const [search, setSearch] = useState('');
+      const wrapperRef = useRef(null);
+
+      useEffect(() => {
+        function handleClickOutside(event) {
+          if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }, [wrapperRef]);
+      
+      const filtered = useMemo(() => {
+        if (!search) return students.slice(0, 50); 
+        const lower = search.toLowerCase();
+        return students.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower) || s.Kelas.toLowerCase().includes(lower)).slice(0, 50);
+      }, [students, search]);
+
+      return (
+        <div ref={wrapperRef} className="relative">
+          <div 
+            className="w-full px-5 py-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 cursor-pointer flex justify-between items-center hover:border-blue-300 hover:shadow-md transition-all"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <i className="fa-solid fa-magnifying-glass text-slate-400"></i>
+              <span className="text-slate-500 font-medium font-bold">Klik untuk mencari & memilih Siswa...</span>
+            </div>
+            <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'}`}></i>
+          </div>
+
+          {isOpen && (
+             <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden animate-[fade-in_0.2s_ease-out]">
+                <input 
+                  type="text" autoFocus
+                  className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-2 placeholder-slate-400"
+                  placeholder="Ketik Nama, NISN, atau Kelas..." 
+                  value={search} onChange={e => setSearch(e.target.value)}
+                />
+                <ul className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                  {filtered.map(s => (
+                    <li key={s.NISN} onClick={() => { onSelect(s); setIsOpen(false); setSearch(''); }} className="p-4 bg-white hover:bg-blue-50 cursor-pointer rounded-xl flex justify-between items-center group transition-colors border border-transparent hover:border-blue-200">
+                      <div>
+                        <div className="font-bold text-slate-800 group-hover:text-blue-700 text-lg">{s.Nama}</div>
+                        <div className="text-sm text-slate-500 font-mono mt-0.5">{s.NISN}</div>
+                      </div>
+                      <div className="bg-slate-100 px-3 py-1.5 rounded-full text-xs font-bold text-slate-600 shadow-sm border border-slate-200">{s.Kelas}</div>
+                    </li>
+                  ))}
+                  {filtered.length === 0 && <div className="text-center py-6 text-slate-400 text-sm italic">Tidak ada siswa yang cocok.</div>}
+                </ul>
+             </div>
+          )}
+        </div>
+      );
+    }
+
+
+    // --- DASHBOARD ADMIN ---
+    function DashboardAdmin({ user }) {
+      const [masterData, setMasterData] = useState({ siswa: [], kategori: [] });
+      const [loading, setLoading] = useState(true);
+      const [inputMode, setInputMode] = useState('masal'); // 'individu' or 'masal'
+      const [submitting, setSubmitting] = useState(false);
+      
+      // State Mode Individu
+      const [selectedSiswa, setSelectedSiswa] = useState(null);
+      const [cartIndividu, setCartIndividu] = useState([]);
+      
+      // State Mode Masal (Touch/Grid)
+      const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
+      const [cartMasalSiswa, setCartMasalSiswa] = useState([]);
+      const [filterKelas, setFilterKelas] = useState('');
+      const [searchNama, setSearchNama] = useState('');
+
+      useEffect(() => {
+        apiCall('GET_MASTER_DATA', {}).then(res => {
+          if (res.success) {
+            setMasterData({ siswa: res.siswa, kategori: res.kategori });
+            const terlambat = res.kategori.find(k => k.NamaKategori.toLowerCase().includes('terlambat'));
+            if(terlambat) setSelectedKategoriMasal(terlambat);
+          }
+          setLoading(false);
+        });
+      }, []);
+
+      const groupedKategori = useMemo(() => {
+        const groups = {};
+        masterData.kategori.forEach(k => {
+          const g = k.Group || 'Lainnya';
+          if(!groups[g]) groups[g] = [];
+          groups[g].push(k);
+        });
+        return groups;
+      }, [masterData.kategori]);
+
+      // --- LOGIKA FILTER MODE MASAL (TANPA KETIK BARCODE) ---
+      const uniqueClasses = useMemo(() => {
+        return [...new Set(masterData.siswa.map(s => s.Kelas))].sort();
+      }, [masterData.siswa]);
+
+      const availableStudentsForMasal = useMemo(() => {
+        let filtered = masterData.siswa;
+        if (filterKelas) filtered = filtered.filter(s => s.Kelas === filterKelas);
+        if (searchNama) {
+          const lower = searchNama.toLowerCase();
+          filtered = filtered.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
+        }
+        return filtered.slice(0, 100); // Batasi 100 agar DOM tidak berat
+      }, [masterData.siswa, filterKelas, searchNama]);
+
+      const toggleStudentMasal = (s) => {
+        const isSelected = cartMasalSiswa.find(x => x.NISN === s.NISN);
+        if(isSelected) {
+          setCartMasalSiswa(cartMasalSiswa.filter(x => x.NISN !== s.NISN));
+        } else {
+          setCartMasalSiswa([{...s, uniqueId: Date.now()}, ...cartMasalSiswa]);
+        }
+      }
+
+      // --- SUBMIT ---
+      const submitMasal = async () => {
+        if(cartMasalSiswa.length === 0 || !selectedKategoriMasal) return;
+        setSubmitting(true);
+        const payload = { mode: 'masal', kategori: selectedKategoriMasal, siswa: cartMasalSiswa, petugas: user };
+        const res = await apiCall('SUBMIT_RECORDS', payload);
+        setSubmitting(false);
+        if (res.success) {
+          alert(`${cartMasalSiswa.length} Siswa berhasil direkam untuk pelanggaran: ${selectedKategoriMasal.NamaKategori}`);
+          setCartMasalSiswa([]);
+        } else alert('Gagal menyimpan.');
+      }
+
+      const submitIndividu = async () => {
+        if (!selectedSiswa || cartIndividu.length === 0) return;
+        setSubmitting(true);
+        const records = cartIndividu.map(c => ({ idKategori: c.ID, namaKategori: c.NamaKategori, poin: c.Poin }));
+        const payload = { tanggal: new Date().toISOString().split('T')[0], kelas: selectedSiswa.Kelas, nisn: selectedSiswa.NISN, namaSiswa: selectedSiswa.Nama, records, petugas: user };
+        
+        const res = await apiCall('SUBMIT_RECORDS', payload);
+        setSubmitting(false);
+        if (res.success) {
+          alert('Data karakter berhasil direkam ke sistem.');
+          setSelectedSiswa(null);
+          setCartIndividu([]);
+        } else alert('Gagal: ' + res.message);
+      };
+
+      if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">MEMUAT DATABASE...</div>;
+
+      return (
+        <div className="animate-[fade-in_0.4s_ease-out]">
+          
+          {/* TAB MODE SWITCHER */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 inline-flex flex-col sm:flex-row w-full sm:w-auto">
+              <button 
+                onClick={() => setInputMode('masal')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${inputMode === 'masal' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                <i className="fa-solid fa-bolt"></i> Mode Masal (Sistem Sentuh)
+              </button>
+              <button 
+                onClick={() => setInputMode('individu')}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-2 sm:mt-0 ${inputMode === 'individu' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                <i className="fa-solid fa-user-pen"></i> Mode Detail (Per Siswa)
+              </button>
+            </div>
+          </div>
+
+          {inputMode === 'masal' ? (
+            /* --- MODE PIKET PAGI (MASAL - SISTEM SENTUH/GRID) --- */
+            <div className="grid lg:grid-cols-12 gap-8">
+               <div className="lg:col-span-7 space-y-6">
+                 
+                 {/* Langkah 1: Pilih Tindakan */}
+                 <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
+                   <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+                     <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">1</span> 
+                     Pilih Tindakan / Pelanggaran
+                   </h2>
+                   
+                   <div className="grid grid-cols-2 gap-3 mb-4">
+                     {masterData.kategori.filter(k=>k.Group==='Kedisiplinan Waktu' || k.Group==='Kerapian & Atribut').slice(0,4).map(k => (
+                       <button 
+                         key={k.ID} onClick={() => setSelectedKategoriMasal(k)}
+                         className={`p-4 rounded-xl text-left border-2 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
+                       >
+                         <div className={`font-bold text-sm sm:text-base ${selectedKategoriMasal?.ID === k.ID ? 'text-amber-700' : 'text-slate-700'} leading-snug`}>{k.NamaKategori}</div>
+                         <div className="text-xs text-slate-500 mt-1">{k.Poin} Poin</div>
+                       </button>
+                     ))}
+                   </div>
+                   
+                   <select 
+                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-medium text-slate-700 cursor-pointer"
+                     value={selectedKategoriMasal?.ID || ''}
+                     onChange={(e) => setSelectedKategoriMasal(masterData.kategori.find(k=>k.ID===e.target.value))}
+                   >
+                     <option value="" disabled>-- Atau pilih kategori lainnya --</option>
+                     {masterData.kategori.map(k => <option key={k.ID} value={k.ID}>{k.NamaKategori} ({k.Poin} Poin)</option>)}
+                   </select>
+                 </div>
+
+                 {/* Langkah 2: Pilih Siswa Sistem Sentuh */}
+                 <div className={`transition-all duration-300 ${!selectedKategoriMasal ? 'opacity-50 pointer-events-none' : ''}`}>
+                   <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
+                     <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
+                       <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span> 
+                       Pilih Siswa (Tap/Klik Langsung)
+                     </h2>
+                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang melanggar. Tidak perlu mengetik sama sekali!</p>
+                     
+                     <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                       <div className="flex-1 relative">
+                         <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                         <select 
+                           className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-amber-500 focus:outline-none appearance-none cursor-pointer"
+                           value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
+                         >
+                           <option value="">Semua Kelas (Filter by Kelas)</option>
+                           {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+                         </select>
+                       </div>
+                       <div className="flex-1 relative">
+                         <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                         <input 
+                           type="text" placeholder="Atau cari nama (Opsional)..." 
+                           className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-amber-500 focus:outline-none"
+                           value={searchNama} onChange={e => setSearchNama(e.target.value)}
+                         />
+                       </div>
+                     </div>
+
+                     {/* Grid Nama Siswa */}
+                     <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
+                        {availableStudentsForMasal.length === 0 ? (
+                           <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
+                        ) : (
+                           <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
+                             {availableStudentsForMasal.map(s => {
+                               const isSelected = cartMasalSiswa.find(x => x.NISN === s.NISN);
+                               return (
+                                 <button 
+                                   key={s.NISN} onClick={() => toggleStudentMasal(s)}
+                                   className={`px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start ${isSelected ? 'bg-amber-500 border-amber-600 text-white shadow-lg transform scale-[1.02]' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm'}`}
+                                 >
+                                   <span>{s.Nama}</span>
+                                   <span className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-amber-100' : 'text-slate-400'}`}>NISN: {s.NISN} &bull; {s.Kelas}</span>
+                                 </button>
+                               )
+                             })}
+                           </div>
+                        )}
+                     </div>
+                   </div>
+                 </div>
+
+               </div>
+
+               <div className="lg:col-span-5">
+                 {/* Keranjang Masal */}
+                 <div className="bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 border border-slate-200 shadow-sm flex flex-col h-[80vh]">
+                    <h3 className="text-lg font-bold mb-4 text-slate-800 border-b border-slate-100 pb-4">
+                      Daftar Eksekusi <span className="text-amber-600">({cartMasalSiswa.length} Siswa)</span>
+                    </h3>
+                    
+                    {selectedKategoriMasal && (
+                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex items-center gap-3">
+                         <div className="w-10 h-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center font-black">{selectedKategoriMasal.Poin}</div>
+                         <div>
+                           <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Tindakan massal:</p>
+                           <p className="font-bold text-slate-800">{selectedKategoriMasal.NamaKategori}</p>
+                         </div>
+                      </div>
+                    )}
+
+                    <ul className="flex-1 overflow-y-auto space-y-2 pr-2">
+                      {cartMasalSiswa.length === 0 ? (
+                        <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                          <i className="fa-solid fa-hand-pointer text-4xl mb-3 opacity-30"></i>
+                          <p className="text-sm font-medium">Belum ada siswa yang dipilih.<br/>Sentuh/klik nama siswa di sebelah kiri.</p>
+                        </div>
+                      ) : (
+                        cartMasalSiswa.map((s, idx) => (
+                          <li key={s.uniqueId} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl hover:bg-slate-50 group bg-white shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <span className="text-slate-400 font-bold text-sm w-4">{cartMasalSiswa.length - idx}.</span>
+                              <div>
+                                <p className="font-bold text-slate-700 text-sm">{s.Nama}</p>
+                                <p className="text-[10px] font-mono text-slate-500">{s.NISN} &bull; {s.Kelas}</p>
+                              </div>
+                            </div>
+                            <button onClick={()=>setCartMasalSiswa(cartMasalSiswa.filter(x=>x.uniqueId!==s.uniqueId))} className="text-red-400 hover:text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+
+                    <button onClick={submitMasal} disabled={submitting || cartMasalSiswa.length===0} className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2">
+                      {submitting ? 'Menyimpan...' : <><i className="fa-solid fa-floppy-disk"></i> Simpan Poin ({cartMasalSiswa.length} Siswa)</>}
+                    </button>
+                 </div>
+               </div>
+            </div>
+
+          ) : (
+
+            /* --- MODE INDIVIDU --- */
+            <div className="grid lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-7 space-y-6">
+                
+                {/* 1. Pilih Siswa */}
+                <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm relative z-20">
+                  <h2 className="text-lg font-bold mb-5 flex items-center gap-3 text-slate-800">
+                    <div className="p-2 bg-blue-100 rounded-xl text-blue-600"><i className="fa-solid fa-user w-5 text-center"></i></div>
+                    Siapa siswa yang akan dicatat?
+                  </h2>
+                  
+                  {!selectedSiswa ? (
+                    <StudentSelector students={masterData.siswa} onSelect={(s) => setSelectedSiswa(s)} />
+                  ) : (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 flex justify-between items-center shadow-inner">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-blue-200 shadow-sm">
+                            <i className="fa-solid fa-user-check text-xl text-blue-600"></i>
+                         </div>
+                         <div>
+                           <h3 className="text-xl font-bold text-slate-800">{selectedSiswa.Nama}</h3>
+                           <p className="text-xs text-slate-600 mt-1"><span className="font-mono bg-white px-1.5 rounded border border-slate-200">{selectedSiswa.NISN}</span> &bull; {selectedSiswa.Kelas}</p>
+                         </div>
+                      </div>
+                      <button onClick={() => { setSelectedSiswa(null); setCartIndividu([]); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-bold shadow-sm">Ganti</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Kategori Grouped (Klik Mudah) */}
+                <div className={`transition-all duration-500 ${selectedSiswa ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-4'}`}>
+                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
+                    <h2 className="text-lg font-bold mb-2 flex items-center gap-3 text-slate-800">
+                      <div className="p-2 bg-green-100 rounded-xl text-green-600"><i className="fa-solid fa-list-check w-5 text-center"></i></div>
+                      Pilih Tindakan (Dikategorikan)
+                    </h2>
+                    <p className="text-sm text-slate-500 mb-6">Klik pada kartu tindakan di bawah ini untuk memasukkannya ke keranjang draft.</p>
+
+                    <div className="space-y-6">
+                      {Object.keys(groupedKategori).map(groupName => (
+                        <div key={groupName}>
+                          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-100 pb-2">{groupName}</h3>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {groupedKategori[groupName].map(k => (
+                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group bg-white flex flex-col justify-between">
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${k.Jenis==='Pelanggaran'?'bg-red-50 text-red-600':'bg-green-50 text-green-600'}`}>
+                                    {k.Kriteria}
+                                  </span>
+                                  <span className={`font-black ${k.Jenis==='Pelanggaran'?'text-red-500':'text-green-500'}`}>{parseInt(k.Poin)>0?'+'+k.Poin:k.Poin}</span>
+                                </div>
+                                <h4 className="font-bold text-slate-700 text-sm group-hover:text-blue-600 leading-snug">{k.NamaKategori}</h4>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 3. Keranjang Input (Cart) */}
+              <div className="lg:col-span-5">
+                <div className={`bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 transition-all duration-500 border ${cartIndividu.length > 0 ? 'border-blue-300 shadow-xl' : 'border-slate-200 shadow-sm'}`}>
+                   <h3 className="text-lg font-bold mb-6 flex justify-between items-center text-slate-800 border-b border-slate-100 pb-4">
+                     <span>Draft Refleksi Siswa</span>
+                     <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">{cartIndividu.length} Item</span>
+                   </h3>
+
+                   {cartIndividu.length === 0 ? (
+                     <div className="py-12 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+                       <i className="fa-solid fa-box-open text-4xl mx-auto mb-4 opacity-50 text-slate-300"></i>
+                       <p className="text-sm font-medium">Keranjang masih kosong.</p>
+                     </div>
+                   ) : (
+                     <div className="space-y-6">
+                       <ul className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
+                         {cartIndividu.map((c) => (
+                           <li key={c.uniqueId} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center gap-3 animate-[fade-in_0.2s_ease-out] shadow-sm">
+                             <div className={`w-1.5 h-6 rounded-full flex-shrink-0 ${parseInt(c.Poin)<0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                             <div className="flex-1 min-w-0">
+                               <p className="text-sm font-bold text-slate-700 truncate">{c.NamaKategori}</p>
+                             </div>
+                             <div className={`font-mono font-black text-sm ${parseInt(c.Poin)<0 ? 'text-red-500' : 'text-green-500'}`}>{parseInt(c.Poin)>0?'+'+c.Poin:c.Poin}</div>
+                             <button onClick={()=>setCartIndividu(cartIndividu.filter(x=>x.uniqueId!==c.uniqueId))} className="text-slate-400 hover:text-red-500 ml-1 p-1"><i className="fa-solid fa-xmark"></i></button>
+                           </li>
+                         ))}
+                       </ul>
+
+                       <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                         <span className="text-xs text-slate-500 font-bold uppercase tracking-wide">Total Poin:</span>
+                         <span className={`text-xl font-black ${cartIndividu.reduce((a,c)=>a+parseInt(c.Poin),0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                           {cartIndividu.reduce((a,c)=>a+parseInt(c.Poin),0)}
+                         </span>
+                       </div>
+
+                       <button onClick={submitIndividu} disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50">
+                         {submitting ? 'Menyimpan...' : 'Kirim ke Sistem'}
+                       </button>
+                     </div>
+                   )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // --- DASHBOARD SISWA (TETAP) ---
+    function DashboardSiswa({ user }) {
+      const [history, setHistory] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        apiCall('GET_SISWA_HISTORY', { nisn: user.nisn }).then(res => {
+          if (res.success) setHistory(res.data);
+          setLoading(false);
+        });
+      }, []);
+
+      const basePoin = 100;
+      const totalPoin = history.reduce((acc, curr) => acc + parseInt(curr.Poin || 0), basePoin); 
+      
+      let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
+      if (totalPoin <= 80 && totalPoin > 60) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; } 
+      else if (totalPoin <= 60 && totalPoin > 40) { statusPembinaan = "Peringatan: Jadwal Pembinaan dengan Guru BK menanti."; colorPembinaan = "text-orange-700 bg-orange-50 border-orange-200"; iconPembinaan = "fa-solid fa-shield-virus"; } 
+      else if (totalPoin <= 40) { statusPembinaan = "Kritis: Pemanggilan Orang Tua (Surat SP)."; colorPembinaan = "text-red-700 bg-red-50 border-red-200"; iconPembinaan = "fa-solid fa-circle-xmark"; }
+
+      if (loading) return <div className="text-center py-20 text-blue-500 font-bold">MEMUAT RAPOR KARAKTER...</div>;
+
+      return (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="bg-white rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-3xl font-black">{user.nama.charAt(0)}</div>
+              <div><h2 className="text-xl md:text-2xl font-extrabold text-slate-800">{user.nama}</h2><p className="text-slate-500 font-medium">{user.nisn} &bull; {user.kelas}</p></div>
+            </div>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-center min-w-[140px]">
+              <p className="text-[10px] uppercase text-slate-500 mb-2 font-bold">Skor Karakter</p>
+              <p className={`text-6xl font-black leading-none ${totalPoin >= 100 ? 'text-green-500' : 'text-red-500'}`}>{totalPoin}</p>
+            </div>
+          </div>
+          <div className={`border p-5 rounded-2xl flex items-center gap-4 shadow-sm ${colorPembinaan}`}>
+             <i className={`${iconPembinaan} text-3xl`}></i>
+             <div><h4 className="font-bold text-xs uppercase mb-1">Status Tindak Lanjut</h4><p className="font-bold">{statusPembinaan}</p></div>
+          </div>
+          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200">
+            <h3 className="text-lg font-bold mb-4 text-slate-800 border-b pb-4"><i className="fa-solid fa-clock-rotate-left text-blue-600"></i> Riwayat Refleksi</h3>
+            {history.length === 0 ? <p className="text-center py-10 text-slate-500">Belum ada riwayat tercatat.</p> : (
+              <table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="px-5 py-3">Tanggal</th><th className="px-5 py-3">Keterangan</th><th className="px-5 py-3 text-center">Poin</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.Poin}</td></tr>)}</tbody></table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const style = document.createElement('style'); style.innerHTML = `@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`; document.head.appendChild(style);
+    const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
+  </script>
+</body>
+</html>
