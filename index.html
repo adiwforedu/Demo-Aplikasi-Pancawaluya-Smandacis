@@ -25,182 +25,67 @@
     const { useState, useEffect, useMemo, useRef } = React;
     
     // DEMO DATA 
-    const generateMockSiswa = () => {
-      let siswa = [];
-      let nisnCounter = 1000;
-      const tingkatan = [{ p: 'X/Fase E', c: 12 }, { p: 'XI/Fase F', c: 12 }, { p: 'XII/Fase Lanjutan', c: 12 }];
-      tingkatan.forEach(t => {
-        for(let i=1; i<=t.c; i++) {
-          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Ade Kurniawan`, Kelas: `${t.p}-${i}` });
-          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Bunga Lestari`, Kelas: `${t.p}-${i}` });
-          siswa.push({ NISN: (nisnCounter++).toString(), Nama: `Candra Wijaya`, Kelas: `${t.p}-${i}` });
+    // Konfigurasi API
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGt20bxq_IH7IL3CzjcaQ9566FGSzzkjfN5O44316KQHtwze56DTabQwb9Us3fW0nz/exec";
+    let cachedSiswa = [];
+
+    const apiCall = async (action, payload = {}) => {
+      if (action === 'LOGIN_ADMIN' && payload.nip === 'admin') {
+         return { success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'GDS' } };
+      }
+      if (action === 'LOGIN_SISWA') {
+         if (cachedSiswa.length === 0) {
+            const res = await apiCall('GET_MASTER_DATA');
+            if (res.success) cachedSiswa = res.siswa;
+         }
+         const s = cachedSiswa.find(x => x.NISN === payload.nisn);
+         if (s) return { success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' } };
+         return { success: false, message: 'NISN tidak ditemukan di Database.' };
+      }
+      if (action === 'GET_KATEGORI') {
+          const res = await apiCall('GET_MASTER_DATA');
+          return { success: res.success, kategori: res.kategori || [] };
+      }
+      if (action === 'GET_SISWA_HISTORY') {
+          return { success: true, data: [] }; 
+      }
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action, payload })
+        });
+        const data = await response.json();
+        
+        if (action === 'GET_MASTER_DATA' && data.success) {
+           cachedSiswa = data.siswa;
+           if (data.kategori) {
+               data.kategori.forEach((k, idx) => {
+                   k.ID = k.ID || ('KAT' + idx);
+                   if (k.Jenis && k.Jenis.toLowerCase().includes('prestasi')) k.Jenis = 'Prestasi';
+                   else k.Jenis = 'Pelanggaran';
+               });
+           }
         }
-      });
-      return siswa;
-    };
-
-    // State global memori untuk demo Rekapitulasi (mendukung history tanggal)
-    let mockAllRecords = [
-      { id: 1, tanggal: '2026-07-19', waktu: '07:15', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', jenis: 'Pelanggaran', kategori: 'Terlambat Masuk Sekolah', poin: '-5', petugas: 'Admin SMANDACIS' },
-      { id: 2, tanggal: '2026-07-19', waktu: '07:20', nama: 'Bunga Lestari', kelas: 'XI/Fase F-2', jenis: 'Pelanggaran', kategori: 'Atribut Tidak Lengkap', poin: '-10', petugas: 'Admin SMANDACIS' },
-      { id: 3, tanggal: '2026-07-18', waktu: '09:00', nama: 'ALYA ARIFAH SETIAWAN', kelas: 'XII F10', jenis: 'Pelanggaran', kategori: 'Mengancam / mengintimidasi sesama murid', poin: '-50', petugas: 'Admin SMANDACIS' },
-      { id: 4, tanggal: '2026-07-16', waktu: '10:00', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', jenis: 'Pelanggaran', kategori: 'Membawa/menghisap rokok/vape', poin: '-30', petugas: 'Guru BK' },
-      { id: 5, tanggal: '2025-08-31', waktu: '08:00', nama: 'VALIZA AURA ZASKIA', kelas: 'XI F8', jenis: 'Prestasi', kategori: 'Juara 1 Kejuaraan Tingkat Kota/Kabupaten', poin: '30', petugas: 'Admin SMANDACIS' }
-    ];
-
-    const apiCall = (action, payload) => {
-      return new Promise((resolve, reject) => {
-        if (typeof google !== 'undefined' && google.script) {
-          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).processRequest(action, payload);
-        } else {
-          const mockSiswa = generateMockSiswa();
-          setTimeout(() => {
-            if (action === 'LOGIN_ADMIN' && payload.nip === 'admin') resolve({ success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'GDS' }});
-            else if (action === 'LOGIN_SISWA') {
-              const s = mockSiswa.find(x => x.NISN === payload.nisn);
-              if (s) resolve({ success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' }});
-              else resolve({ success: false, message: 'NISN tidak ditemukan.' });
-            }
-            else if (action === 'GET_KATEGORI') {
-              setTimeout(() => {
-                 let stored = localStorage.getItem('kategoriPoin');
-                 if(!stored) {
-                    const initial = getInitialKategori();
-                    localStorage.setItem('kategoriPoin', JSON.stringify(initial));
-                    stored = JSON.stringify(initial);
-                 }
-                 resolve({ success: true, kategori: JSON.parse(stored) });
-              }, 500);
-            }
-            else if (action === 'SAVE_KATEGORI') {
-              setTimeout(() => {
-                 if (payload.password !== 'admin123') {
-                    resolve({ success: false, message: 'Password salah!' });
-                 } else {
-                    localStorage.setItem('kategoriPoin', JSON.stringify(payload.data));
-                    resolve({ success: true });
-                 }
-              }, 500);
-            }
-            else if (action === 'GET_MASTER_DATA') {
-              let stored = localStorage.getItem('kategoriPoin');
-              if(!stored) {
-                 const initial = getInitialKategori();
-                 localStorage.setItem('kategoriPoin', JSON.stringify(initial));
-                 stored = JSON.stringify(initial);
-              }
-              resolve({
-                success: true, 
-                siswa: mockSiswa,
-                kategori: JSON.parse(stored)
-              });
-            }
-            else if (action === 'GET_SISWA_HISTORY') resolve({ success: true, data: [{ Tanggal:'2026-07-16', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Petugas:'Admin' }]});
-            else if (action === 'GET_ALL_RECORDS') {
-              resolve({ success: true, data: mockAllRecords });
-            }
-            else if (action === 'GET_CRITICAL_STUDENTS') {
-              const critical = [];
-              const mockMap = {
-                '1005': { SisaPoin: 95, Status: 'Wali Kelas' },
-                '1010': { SisaPoin: 45, Status: 'Guru BK / Surat Peringatan' }
-              };
-              const localMockSiswa = generateMockSiswa();
-              localMockSiswa.forEach(s => {
-                 let startPoin = mockMap[s.NISN] ? mockMap[s.NISN].SisaPoin : 300;
-                 let totalHistory = 0;
-                 mockAllRecords.filter(r => r.nama === s.Nama && r.kelas === s.Kelas).forEach(r => {
-                    totalHistory += parseInt(r.poin) || 0;
-                 });
-                 let currentPoin = startPoin + totalHistory;
-                 
-                 if (currentPoin <= 150) {
-                    let status = 'Guru/Wali Kelas';
-                    if (currentPoin <= 100) status = 'Wali Kelas / BK';
-                    if (currentPoin <= 50) status = 'BK / Surat Peringatan / Orang Tua';
-                    if (currentPoin <= 0) status = 'Kepala Sekolah / Dikembalikan';
-                    critical.push({ NISN: s.NISN, Nama: s.Nama, Kelas: s.Kelas, SisaPoin: currentPoin, Status: status });
-                 }
-              });
-              critical.sort((a,b) => a.SisaPoin - b.SisaPoin);
-              resolve({ success: true, data: critical });
-            }
-            else if (action === 'SUBMIT_RECORDS') {
-              const now = new Date();
-              const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-              const dateStr = now.toISOString().split('T')[0];
-              
-              let duplicateMessages = [];
-              let addedCount = 0;
-
-              if (payload.mode === 'masal') {
-                 payload.siswa.forEach(s => {
-                   const isDuplicate = mockAllRecords.find(r => r.tanggal === dateStr && r.nama === s.Nama && r.kelas === s.Kelas && r.kategori === payload.kategori.NamaKategori);
-                   if (isDuplicate) {
-                     duplicateMessages.push(s.Nama);
-                   } else {
-                     mockAllRecords.unshift({
-                       id: Date.now() + Math.random(),
-                       tanggal: dateStr,
-                       waktu: timeStr,
-                       nama: s.Nama,
-                       kelas: s.Kelas,
-                       jenis: payload.kategori.Jenis,
-                       kategori: payload.kategori.NamaKategori,
-                       poin: payload.kategori.Poin,
-                       petugas: payload.petugas.nama
-                     });
-                     addedCount++;
-                   }
-                 });
-              } else {
-                 payload.records.forEach(r => {
-                   const isDuplicate = mockAllRecords.find(tr => tr.tanggal === dateStr && tr.nama === payload.namaSiswa && tr.kelas === payload.kelas && tr.kategori === r.namaKategori);
-                   if (isDuplicate) {
-                     duplicateMessages.push(r.namaKategori);
-                   } else {
-                     mockAllRecords.unshift({
-                       id: Date.now() + Math.random(),
-                       tanggal: dateStr,
-                       waktu: timeStr,
-                       nama: payload.namaSiswa,
-                       kelas: payload.kelas,
-                       jenis: r.Jenis || (parseInt(r.poin) > 0 ? 'Prestasi' : 'Pelanggaran'),
-                       kategori: r.namaKategori,
-                       poin: r.poin,
-                       petugas: payload.petugas.nama
-                     });
-                     addedCount++;
-                   }
-                 });
-              }
-
-              let waMessage = "";
-              let maxPoinSatuSiswa = 0;
-              if (payload.mode === 'masal') {
-                 maxPoinSatuSiswa = Math.abs(parseInt(payload.kategori.Poin));
-              } else {
-                 maxPoinSatuSiswa = payload.records.reduce((acc, r) => acc + Math.abs(parseInt(r.poin)), 0);
-              }
-
-              if (maxPoinSatuSiswa >= 75) {
-                 waMessage = "\n\nðŸ”” [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Guru BK!";
-              } else if (maxPoinSatuSiswa >= 50) {
-                 waMessage = "\n\nðŸ”” [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Wali Kelas!";
-              }
-
-              if (duplicateMessages.length > 0 && addedCount === 0) {
-                 resolve({ success: false, message: 'DITOLAK: Data tersebut sudah pernah diinput untuk siswa ini pada hari ini!' });
-              } else if (duplicateMessages.length > 0 && addedCount > 0) {
-                 resolve({ success: true, message: `Disimpan ${addedCount} data. (${duplicateMessages.length} data ditolak karena sudah pernah diinput hari ini).` + waMessage});
-              } else {
-                 resolve({ success: true, message: 'Data berhasil direkam ke sistem.' + waMessage});
-              }
-            }
-            else resolve({ success: false, message: 'Gagal' });
-          }, 400);
+        
+        if (action === 'SUBMIT_RECORDS' && data.success) {
+           let maxPoin = 0;
+           if (payload.mode === 'masal') {
+              maxPoin = Math.abs(parseInt(payload.kategori.Poin));
+           } else if (payload.records) {
+              maxPoin = payload.records.reduce((acc, r) => acc + Math.abs(parseInt(r.poin)), 0);
+           }
+           let waMsg = "";
+           if (maxPoin >= 75) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Guru BK!";
+           else if (maxPoin >= 50) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Wali Kelas!";
+           
+           data.message = data.message + waMsg;
         }
-      });
+
+        return data;
+      } catch (err) {
+        return { success: false, message: 'Koneksi Server Gagal: ' + err.toString() };
+      }
     };
   </script>
 
@@ -227,8 +112,8 @@
           <header className="bg-blue-700 shadow-md sticky top-0 z-40">
             <div className="container mx-auto max-w-7xl px-4 py-3 lg:px-8 flex justify-between items-center">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                   <i className="fa-solid fa-shield-halved text-2xl text-blue-700"></i>
+                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden p-1">
+                   <img src="https://lh3.googleusercontent.com/d/1YdTmngsIMNTzi_4BQ-WREQzWV3ZW6HXm" alt="Logo Sekolah" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                 </div>
                 <div>
                   <p className="text-[10px] lg:text-xs text-blue-200 font-light tracking-[0.2em] uppercase opacity-90 mb-0.5">Pembentukan Karakter</p>
@@ -357,7 +242,13 @@
             Poin: isApresiasi ? Math.abs(newKat.Poin).toString() : '-' + Math.abs(newKat.Poin).toString(),
             Kriteria: 'Umum', Desc: newKat.NamaKategori
          };
-         setKategoriList([...kategoriList, newItem]);
+         
+         const sortedList = [...kategoriList, newItem].sort((a, b) => {
+            if (a.Jenis !== b.Jenis) return a.Jenis === 'Prestasi' ? -1 : 1;
+            return Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin));
+         });
+         
+         setKategoriList(sortedList);
          setNewKat({ NamaKategori: '', Poin: '', Jenis: 'Pelanggaran', Group: 'Pelanggaran Ketertiban' });
       };
 
@@ -498,7 +389,7 @@
       const uniqueClasses = useMemo(() => {
         const setCls = new Set();
         students.forEach(s => { if (s.Kelas) setCls.add(s.Kelas); });
-        return Array.from(setCls).sort();
+        return Array.from(setCls).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
       }, [students]);
 
       const filtered = useMemo(() => {
@@ -523,7 +414,17 @@
                  value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
                >
                  <option value="">Semua Kelas (Filter by Kelas)</option>
-                 {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+                 {uniqueClasses.map((c, i, arr) => {
+                    const prefix = c.split(' ')[0];
+                    const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
+                    const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
+                    return (
+                       <React.Fragment key={c}>
+                          {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                          <option value={c} className={bg}>Kelas {c}</option>
+                       </React.Fragment>
+                    );
+                 })}
                </select>
              </div>
              <div className="flex-1 relative">
@@ -570,6 +471,9 @@
       const [searchKategoriIndividu, setSearchKategoriIndividu] = useState('');
       
       const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
+      const [pinnedNames, setPinnedNames] = useState(() => JSON.parse(localStorage.getItem('pinnedKategoriNames')) || []);
+      const [showPinModal, setShowPinModal] = useState(false);
+      const [searchPinModal, setSearchPinModal] = useState('');
       const [searchKategoriMasal, setSearchKategoriMasal] = useState('');
       const [cartMasalSiswa, setCartMasalSiswa] = useState([]);
       const [filterKelas, setFilterKelas] = useState('');
@@ -594,6 +498,16 @@
         apiCall('GET_CRITICAL_STUDENTS', {}).then(res => {
           if (res.success) setCriticalStudents(res.data);
         });
+      };
+
+      const handleRefresh = (e) => {
+         const icon = e.currentTarget.querySelector('i');
+         if(icon) icon.classList.add('animate-[spin_0.5s_linear_infinite]');
+         fetchRekap();
+         fetchCriticalStudents();
+         setTimeout(() => {
+            if(icon) icon.classList.remove('animate-[spin_0.5s_linear_infinite]');
+         }, 500);
       };
 
       useEffect(() => {
@@ -629,16 +543,25 @@
 
 
       const uniqueClasses = useMemo(() => {
-        return [...new Set(masterData.siswa.map(s => s.Kelas))].sort();
-      }, [masterData.siswa]);
+        const clsSet = new Set();
+        masterData.siswa.forEach(s => { if(s.Kelas) clsSet.add(s.Kelas) });
+        rekapData.forEach(r => { if(r.kelas) clsSet.add(r.kelas) });
+        return Array.from(clsSet).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
+      }, [masterData.siswa, rekapData]);
 
       const filteredRekapData = useMemo(() => {
          let data = [...rekapData];
          if (filterRekapNama) data = data.filter(d => d.nama.toLowerCase().includes(filterRekapNama.toLowerCase()));
          if (filterRekapKelas) data = data.filter(d => d.kelas === filterRekapKelas);
          if (filterRekapKategori !== 'Semua') data = data.filter(d => d.jenis === filterRekapKategori);
-         if (filterRekapDateStart) data = data.filter(d => d.tanggal >= filterRekapDateStart);
-         if (filterRekapDateEnd) data = data.filter(d => d.tanggal <= filterRekapDateEnd);
+         if (filterRekapDateStart) {
+            const start = new Date(filterRekapDateStart).getTime();
+            data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() >= start);
+         }
+         if (filterRekapDateEnd) {
+            const end = new Date(filterRekapDateEnd).getTime();
+            data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() <= end);
+         }
          return data;
       }, [rekapData, filterRekapNama, filterRekapKelas, filterRekapKategori, filterRekapDateStart, filterRekapDateEnd]);
       
@@ -652,10 +575,12 @@
              : filteredRekapData;
 
          dataToSum.forEach(d => {
-           const p = parseInt(d.poin) || 0;
-           if (p > 0) tp += p;
-           else tpl += Math.abs(p);
+           const p = Math.abs(parseInt(d.poin) || 0);
+           if (d.jenis === 'Prestasi') tp += p;
+           else if (d.jenis === 'Pelanggaran') tpl += p;
          });
+         
+         tpl = Math.max(0, tpl - tp);
          
          if ((filterRekapNama || focusedStudentNama) && tpl >= 300) cAlert = true;
          return { totalPrestasi: tp, totalPelanggaran: tpl, criticalAlert: cAlert };
@@ -683,13 +608,24 @@
       const submitMasal = async () => {
         if(cartMasalSiswa.length === 0 || !selectedKategoriMasal) return;
         setSubmitting(true);
-        const payload = { mode: 'masal', kategori: selectedKategoriMasal, siswa: cartMasalSiswa, petugas: user };
+        const dateStr = new Date().toISOString().split('T')[0];
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const records = cartMasalSiswa.map(s => ({
+            namaSiswa: s.Nama,
+            kelas: s.Kelas,
+            namaKategori: selectedKategoriMasal.NamaKategori,
+            jenis: selectedKategoriMasal.Jenis,
+            poin: selectedKategoriMasal.Poin,
+            petugas: user
+        }));
+        const payload = { date: dateStr, time: timeStr, records };
         const res = await apiCall('SUBMIT_RECORDS', payload);
         setSubmitting(false);
         if (res.success) {
           alert(res.message);
           setCartMasalSiswa([]);
           fetchCriticalStudents();
+          fetchRekap();
         } else alert(res.message);
       }
 
@@ -698,8 +634,17 @@
       const submitIndividu = async () => {
         if (!selectedSiswa || cartIndividu.length === 0) return;
         setSubmitting(true);
-        const records = cartIndividu.map(c => ({ idKategori: c.ID, namaKategori: c.NamaKategori, poin: c.Poin }));
-        const payload = { mode: 'individu', tanggal: new Date().toISOString().split('T')[0], kelas: selectedSiswa.Kelas, nisn: selectedSiswa.NISN, namaSiswa: selectedSiswa.Nama, records, petugas: user };
+        const dateStr = new Date().toISOString().split('T')[0];
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const records = cartIndividu.map(c => ({
+            namaSiswa: selectedSiswa.Nama,
+            kelas: selectedSiswa.Kelas,
+            namaKategori: c.NamaKategori,
+            jenis: c.Jenis,
+            poin: c.Poin,
+            petugas: user
+        }));
+        const payload = { date: dateStr, time: timeStr, records };
         
         const res = await apiCall('SUBMIT_RECORDS', payload);
         setSubmitting(false);
@@ -708,6 +653,7 @@
           setSelectedSiswa(null);
           setCartIndividu([]);
           fetchCriticalStudents();
+          fetchRekap();
         } else alert(res.message);
       };
 
@@ -901,7 +847,7 @@
                        <h2 className="text-2xl sm:text-4xl font-black leading-tight">PEMBENTUKAN KARAKTER<br/>PANCA WALUYA</h2>
                        <p className="text-slate-400 mt-2 text-xs sm:text-sm">SMAN 2 Ciamis - Sistem Informasi Pemantauan Karakter</p>
                      </div>
-                     <button onClick={fetchRekap} className="bg-white/10 w-full md:w-auto hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl transition-all shadow-lg backdrop-blur-sm font-bold flex justify-center items-center gap-2">
+                     <button onClick={handleRefresh} className="bg-white/10 w-full md:w-auto hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl transition-all shadow-lg backdrop-blur-sm font-bold flex justify-center items-center gap-2">
                        <i className="fa-solid fa-rotate"></i> Segarkan Data
                      </button>
                    </div>
@@ -911,7 +857,7 @@
                   {/* Filters & Summary */}
                   <div className="flex flex-col lg:flex-row gap-6 mb-8">
                      {/* Filter Panel */}
-                     <div className="flex-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end">
+                     <div className="flex-1 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end min-w-0">
                         <div className="w-full sm:flex-1 min-w-[150px]">
                            <label className="block text-xs font-bold text-slate-500 mb-1">Nama Siswa</label>
                            <input type="text" value={filterRekapNama} onChange={(e)=>setFilterRekapNama(e.target.value)} placeholder="Semua Siswa..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -921,7 +867,17 @@
                              <label className="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
                              <select value={filterRekapKelas} onChange={(e)=>setFilterRekapKelas(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                                <option value="">Semua</option>
-                               {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                               {uniqueClasses.map((c, i, arr) => {
+                                  const prefix = c.split(' ')[0];
+                                  const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
+                                  const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
+                                  return (
+                                     <React.Fragment key={c}>
+                                        {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                                        <option value={c} className={bg}>{c}</option>
+                                     </React.Fragment>
+                                  );
+                               })}
                              </select>
                           </div>
                           <div className="flex-1 sm:hidden">
@@ -941,12 +897,12 @@
                              <option value="Pelanggaran">Pelanggaran</option>
                            </select>
                         </div>
-                        <div className="w-full sm:flex-1 min-w-[200px] flex gap-2">
-                           <div className="flex-1">
+                        <div className="w-full sm:flex-1 min-w-0 grid grid-cols-2 gap-3">
+                           <div>
                              <label className="block text-xs font-bold text-slate-500 mb-1">Dari Tanggal</label>
                              <input type="date" value={filterRekapDateStart} onChange={(e)=>setFilterRekapDateStart(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                            </div>
-                           <div className="flex-1">
+                           <div>
                              <label className="block text-xs font-bold text-slate-500 mb-1">Sampai Tanggal</label>
                              <input type="date" value={filterRekapDateEnd} onChange={(e)=>setFilterRekapDateEnd(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                            </div>
@@ -954,19 +910,19 @@
                      </div>
                      
                      {/* Summary Cards */}
-                     <div className="flex gap-3 sm:gap-4 w-full lg:w-auto">
-                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-4 sm:p-5 rounded-2xl shadow-sm flex-1 sm:w-40 flex flex-col justify-center items-center text-center">
-                           <p className="text-emerald-700 font-bold text-xs sm:text-sm mb-1">
-                              Prestasi {focusedStudentNama && <span className="block text-[10px] bg-emerald-200/50 rounded px-1 mt-1 truncate max-w-[120px] mx-auto">{focusedStudentNama}</span>}
+                     <div className="flex gap-3 w-full lg:w-auto">
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center">
+                           <p className="text-emerald-700 font-bold text-xs mb-1">
+                              Prestasi {focusedStudentNama && <span className="block text-[9px] sm:text-[10px] bg-emerald-200/50 rounded px-1 mt-1 truncate max-w-[120px] mx-auto">{focusedStudentNama}</span>}
                            </p>
-                           <p className="text-3xl sm:text-4xl font-black text-emerald-600">{totalPrestasi}</p>
+                           <p className="text-2xl sm:text-4xl font-black text-emerald-600">{totalPrestasi}</p>
                         </div>
-                        <div className={`border p-4 sm:p-5 rounded-2xl shadow-sm flex-1 sm:w-40 flex flex-col justify-center items-center text-center transition-all relative ${criticalAlert ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600'}`}>
-                           <p className={`font-bold text-xs sm:text-sm mb-1 ${criticalAlert ? 'text-red-100' : 'text-red-700'}`}>
-                              Pelanggaran {focusedStudentNama && <span className={`block text-[10px] rounded px-1 mt-1 truncate max-w-[120px] mx-auto ${criticalAlert ? 'bg-red-500/50' : 'bg-red-200/50'}`}>{focusedStudentNama}</span>}
+                        <div className={`border p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center transition-all relative ${criticalAlert ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600'}`}>
+                           <p className={`font-bold text-xs mb-1 ${criticalAlert ? 'text-red-100' : 'text-red-700'}`}>
+                              Pelanggaran {focusedStudentNama && <span className={`block text-[9px] sm:text-[10px] rounded px-1 mt-1 truncate max-w-[120px] mx-auto ${criticalAlert ? 'bg-red-500/50' : 'bg-red-200/50'}`}>{focusedStudentNama}</span>}
                            </p>
-                           <p className="text-3xl sm:text-4xl font-black">{totalPelanggaran}</p>
-                           {criticalAlert && <div className="absolute -top-3 -right-3 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-bounce border-2 border-white"><i className="fa-solid fa-triangle-exclamation"></i> KRITIS</div>}
+                           <p className="text-2xl sm:text-4xl font-black">{totalPelanggaran}</p>
+                           {criticalAlert && <div className="absolute -top-3 -right-2 bg-yellow-400 text-yellow-900 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white"><i className="fa-solid fa-triangle-exclamation"></i> KRITIS</div>}
                         </div>
                      </div>
                   </div>
@@ -1004,8 +960,8 @@
                                   </td>
                                   <td className="px-5 py-3 text-slate-600 max-w-[300px] truncate" title={r.kategori}>{r.kategori}</td>
                                   <td className="px-5 py-3 text-center">
-                                    <span className={`font-black text-sm ${parseInt(r.poin) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                      {parseInt(r.poin) > 0 ? `+${r.poin}` : r.poin}
+                                    <span className={`font-black text-sm ${r.jenis === 'Pelanggaran' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                      {r.jenis === 'Pelanggaran' ? `-${Math.abs(parseInt(r.poin) || 0)}` : `+${Math.abs(parseInt(r.poin) || 0)}`}
                                     </span>
                                   </td>
                                   <td className="px-5 py-3 text-slate-500 text-xs font-medium">{r.petugas}</td>
@@ -1027,13 +983,16 @@
                  
                  {/* Langkah 1: Pilih Tindakan */}
                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
-                   <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
-                     <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">1</span> 
-                     Pilih Tindakan / Pelanggaran
-                   </h2>
+                   <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 pb-3 mb-4 gap-3">
+                     <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                       <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs shrink-0">1</span> 
+                       Pilih Tindakan / Pelanggaran
+                     </h2>
+                     <button onClick={() => setShowPinModal(true)} className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors"><i className="fa-solid fa-sliders"></i> Atur Pintasan</button>
+                   </div>
                    
-                   <div className="grid grid-cols-2 gap-3 mb-4">
-                     {masterData.kategori.filter(k=>k.Jenis==='Pelanggaran').slice(0,4).map(k => (
+                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                     {(pinnedNames.length > 0 ? pinnedNames.map(name => masterData.kategori.find(k=>k.NamaKategori === name && k.Jenis==='Pelanggaran')).filter(Boolean) : masterData.kategori.filter(k=>k.Jenis==='Pelanggaran').slice(0,8)).map(k => (
                        <button 
                          key={k.ID} onClick={() => setSelectedKategoriMasal(k)}
                          className={`p-4 rounded-xl text-left border-2 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
@@ -1116,7 +1075,17 @@
                            value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
                          >
                            <option value="">Semua Kelas (Filter by Kelas)</option>
-                           {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+                           {uniqueClasses.map((c, i, arr) => {
+                              const prefix = c.split(' ')[0];
+                              const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
+                              const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
+                              return (
+                                 <React.Fragment key={c}>
+                                    {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                                    <option value={c} className={bg}>Kelas {c}</option>
+                                 </React.Fragment>
+                              );
+                           })}
                          </select>
                        </div>
                        <div className="flex-1 relative">
@@ -1365,6 +1334,41 @@
               </button>
             ))}
           </nav>
+          
+          {showPinModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-lg max-h-[80vh] flex flex-col shadow-xl">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3"><i className="fa-solid fa-sliders"></i> Atur Tombol Pintas</h3>
+                <p className="text-sm text-slate-500 mb-4">Pilih pelanggaran yang ingin Bapak jadikan tombol cepat. <b>Urutan tombol akan persis sama dengan urutan saat Bapak mencentangnya!</b> (Hilangkan centang lalu centang kembali untuk mengubah urutan).</p>
+                <div className="relative mb-4">
+                  <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                  <input type="text" placeholder="Cari pelanggaran..." value={searchPinModal} onChange={(e) => setSearchPinModal(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700" />
+                </div>
+                <div className="overflow-y-auto flex-1 pr-2 space-y-2">
+                   {masterData.kategori.filter(k=>k.Jenis==='Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchPinModal.toLowerCase())).map(k => (
+                      <label key={k.NamaKategori} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                         <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                            checked={pinnedNames.includes(k.NamaKategori)}
+                            onChange={(e) => {
+                               if (e.target.checked) setPinnedNames([...pinnedNames, k.NamaKategori]);
+                               else setPinnedNames(pinnedNames.filter(n => n !== k.NamaKategori));
+                            }}
+                         />
+                         <span className="font-medium text-slate-700">{k.NamaKategori}</span>
+                      </label>
+                   ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex gap-3 justify-end">
+                   <button onClick={() => setShowPinModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Tutup</button>
+                   <button onClick={() => {
+                       localStorage.setItem('pinnedKategoriNames', JSON.stringify(pinnedNames));
+                       setShowPinModal(false);
+                   }} className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Simpan Pintasan</button>
+                </div>
+              </div>
+            </div>
+          )}
+          
         </div>
       );
     }
