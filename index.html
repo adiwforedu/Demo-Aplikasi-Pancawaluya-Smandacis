@@ -579,10 +579,7 @@
            if (d.jenis === 'Prestasi') tp += p;
            else if (d.jenis === 'Pelanggaran') tpl += p;
          });
-         
-         tpl = Math.max(0, tpl - tp);
-         
-         if ((filterRekapNama || focusedStudentNama) && tpl >= 300) cAlert = true;
+         if ((filterRekapNama || focusedStudentNama) && Math.max(0, tpl - tp) >= 300) cAlert = true;
          return { totalPrestasi: tp, totalPelanggaran: tpl, criticalAlert: cAlert };
       }, [filteredRekapData, filterRekapNama, focusedStudentNama, rekapData]);
 
@@ -657,7 +654,7 @@
         } else alert(res.message);
       };
 
-      if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">MEMUAT DATABASE...</div>;
+      if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">NUJU MILARI DATABASE...</div>;
 
       const menuItems = [
         { id: 'overview', icon: 'fa-chart-pie', label: 'Dashboard', color: 'text-indigo-600' },
