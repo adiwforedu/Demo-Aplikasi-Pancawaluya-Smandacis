@@ -47,9 +47,17 @@
           return { success: res.success, kategori: res.kategori || [] };
       }
       if (action === 'GET_SISWA_HISTORY') {
-          return { success: true, data: [] }; 
+          const res = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'GET_ALL_RECORDS', payload: {} })
+          }).then(r=>r.json()).catch(()=>({success:false}));
+          if (res.success) {
+              const studentName = cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
+              const history = (res.records || []).filter(d => d.nama === studentName);
+              return { success: true, data: history };
+          }
+          return { success: false, data: [] };
       }
-
       try {
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
@@ -142,7 +150,7 @@
       const [role, setRole] = useState('Admin');
       const [nip, setNip] = useState('admin'); 
       const [password, setPassword] = useState('admin'); 
-      const [nisn, setNisn] = useState('1000'); 
+      const [nisn, setNisn] = useState(''); 
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
 
@@ -163,7 +171,7 @@
             
             <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
               <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Admin')}>Petugas GDS</button>
-              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Siswa')}>Siswa</button>
+              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Siswa')}>Murid</button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -181,7 +189,7 @@
               ) : (
                 <div>
                   <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">NISN / NIS</label>
-                  <input type="text" required value={nisn} onChange={e=>setNisn(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-center text-xl tracking-widest font-mono transition-all" placeholder="1000" />
+                  <input type="text" required value={nisn} onChange={e=>setNisn(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-center text-xl tracking-widest font-mono transition-all" placeholder="Masukkan NISN..." />
                 </div>
               )}
               
@@ -404,7 +412,7 @@
 
       return (
         <div>
-           <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang akan dicatat. Tidak perlu mengetik!</p>
+           <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang akan dicatat. Tidak perlu mengetik!</p>
            
            <div className="flex flex-col sm:flex-row gap-3 mb-5">
              <div className="flex-1 relative">
@@ -475,6 +483,7 @@
       const [showPinModal, setShowPinModal] = useState(false);
       const [searchPinModal, setSearchPinModal] = useState('');
       const [searchKategoriMasal, setSearchKategoriMasal] = useState('');
+      const [masalJenisTab, setMasalJenisTab] = useState('Pelanggaran');
       const [cartMasalSiswa, setCartMasalSiswa] = useState([]);
       const [filterKelas, setFilterKelas] = useState('');
       const [searchNama, setSearchNama] = useState('');
@@ -513,12 +522,12 @@
       useEffect(() => {
         apiCall('GET_MASTER_DATA', {}).then(res => {
           if (res.success) {
-            setMasterData({ siswa: res.siswa, kategori: res.kategori });
-            const terlambat = res.kategori.find(k => k.NamaKategori.toLowerCase().includes('terlambat'));
+            setMasterData({ siswa: res.siswa || [], kategori: res.kategori || [] });
+            const terlambat = (res.kategori || []).find(k => k.NamaKategori?.toLowerCase().includes('terlambat'));
             if(terlambat) setSelectedKategoriMasal(terlambat);
           }
           setLoading(false);
-        });
+        }).catch(() => setLoading(false));
         fetchRekap();
         fetchCriticalStudents();
       }, []);
@@ -654,6 +663,50 @@
         } else alert(res.message);
       };
 
+      const handleTandaiDibina = async (s) => {
+         if (!window.confirm(`Tandai ${s.Nama} telah dibina? Peringatan untuk murid ini akan disembunyikan sampai ada pelanggaran baru (tanpa mereset poin).`)) return;
+         setSubmitting(true);
+         const dateStr = new Date().toISOString().split('T')[0];
+         const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+         
+         const payload = {
+            date: dateStr,
+            time: timeStr,
+            records: [{
+               namaSiswa: s.Nama,
+               kelas: s.Kelas,
+               namaKategori: "Telah Dibina",
+               jenis: "Pembinaan",
+               poin: 0,
+               petugas: user.nip || 'Admin'
+            }]
+         };
+         const res = await apiCall('SUBMIT_RECORDS', payload);
+         setSubmitting(false);
+         if (res.success) {
+            alert(`Berhasil menandai ${s.Nama} telah dibina.`);
+            fetchCriticalStudents();
+            fetchRekap();
+         } else {
+            alert(res.message);
+         }
+      };
+
+      const visibleCriticalStudents = useMemo(() => {
+          return criticalStudents.filter(s => {
+             const studentRecords = rekapData.filter(r => r.nama === s.Nama);
+             const getJenis = r => (r.jenis || '').trim().toLowerCase();
+             
+             const lastPelanggaranIdx = studentRecords.findIndex(r => getJenis(r) === 'pelanggaran');
+             const lastPembinaanIdx = studentRecords.findIndex(r => getJenis(r) === 'pembinaan');
+             
+             if (lastPembinaanIdx === -1) return true; // Belum pernah dibina -> TAMPILKAN
+             if (lastPelanggaranIdx === -1) return true; // Fallback fail-safe -> TAMPILKAN
+             
+             return lastPelanggaranIdx < lastPembinaanIdx; // Tampilkan jika pelanggaran lebih baru dari pembinaan
+          });
+      }, [criticalStudents, rekapData]);
+
       if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">NUJU MILARI DATABASE...</div>;
 
       const menuItems = [
@@ -661,7 +714,7 @@
         { id: 'masal', icon: 'fa-bolt', label: 'Piket Pagi', color: 'text-amber-500' },
         { id: 'individu', icon: 'fa-user-pen', label: 'Mode Detail', color: 'text-blue-600' },
         { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekapitulasi', color: 'text-emerald-600' },
-        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: criticalStudents.length },
+        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: visibleCriticalStudents.length },
         { id: 'panduan', icon: 'fa-book', label: 'Buku Saku', color: 'text-purple-600' }
       ];
 
@@ -698,26 +751,27 @@
           {activeMenu === 'overview' ? (
               <div className="space-y-6 animate-[fade-in_0.3s_ease-out]">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
-                       <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-users"></i></div>
-                       <div><p className="text-sm font-bold text-slate-500">Total Siswa</p><p className="text-3xl font-black text-slate-800">{masterData.siswa.length}</p></div>
-                    </div>
+                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                       <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-blue-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                       <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-users"></i></div>
+                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Total Murid</p><p className="text-3xl font-black text-slate-800">{masterData.siswa.length}</p></div>
+                     </div>
                     <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
                        <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-clipboard-check"></i></div>
                        <div><p className="text-sm font-bold text-slate-500">Aktivitas Tersimpan</p><p className="text-3xl font-black text-slate-800">{rekapData.length}</p></div>
                     </div>
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5 relative overflow-hidden">
-                       <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-2xl relative z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
-                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Siswa Kritis</p><p className="text-3xl font-black text-red-600">{criticalStudents.length}</p></div>
-                       {criticalStudents.length > 0 && <div className="absolute top-0 right-0 w-32 h-32 bg-red-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10 animate-pulse"></div>}
-                    </div>
+                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                       <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-red-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                       <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
+                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Murid Kritis</p><p className="text-3xl font-black text-red-600">{criticalStudents.length}</p></div>
+                     </div>
                  </div>
 
                  {/* Welcome Banner */}
                  <div className="bg-blue-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-blue-600/20">
                     <div className="relative z-10 md:w-2/3">
                       <h2 className="text-2xl font-black mb-2">Selamat Datang di GDS Dashboard!</h2>
-                      <p className="text-blue-100 text-sm leading-relaxed mb-6">Pilih menu di sebelah kiri (atau di bawah jika di HP) untuk mulai merekam pelanggaran/prestasi, melihat rekap harian, atau menindaklanjuti siswa yang memerlukan pembinaan karakter.</p>
+                      <p className="text-blue-100 text-sm leading-relaxed mb-6">Pilih menu di sebelah kiri (atau di bawah jika di HP) untuk mulai merekam pelanggaran/prestasi, melihat rekap harian, atau menindaklanjuti murid yang memerlukan pembinaan karakter.</p>
                       <button onClick={() => setActiveMenu('masal')} className="bg-white text-blue-700 px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-50 transition-colors flex items-center gap-2">
                         <i className="fa-solid fa-bolt"></i> Mulai Piket Masal
                       </button>
@@ -726,11 +780,11 @@
                  </div>
                  
                  {/* Mini Alert for Critical */}
-                 {criticalStudents.length > 0 && (
+                 {visibleCriticalStudents.length > 0 && (
                     <div onClick={() => setActiveMenu('pembinaan')} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-red-100 transition-colors">
                       <div className="flex items-center gap-4">
                          <div className="bg-white text-red-600 w-10 h-10 rounded-full flex items-center justify-center shadow-sm"><i className="fa-solid fa-bell animate-pulse"></i></div>
-                         <div><p className="font-bold text-red-700 text-sm">Peringatan Dini Aktif</p><p className="text-xs text-red-600">{criticalStudents.length} siswa menunggu tindak lanjut.</p></div>
+                         <div><p className="font-bold text-red-700 text-sm">Peringatan Dini Aktif</p><p className="text-xs text-red-600">{visibleCriticalStudents.length} murid menunggu tindak lanjut.</p></div>
                       </div>
                       <i className="fa-solid fa-chevron-right text-red-400"></i>
                     </div>
@@ -787,25 +841,25 @@
             </div>
           ) : activeMenu === 'pembinaan' ? (
             
-            /* --- ðŸ›¡ï¸ MODE DAFTAR PEMBINAAN --- */
+            /* --- 🛡️ MODE DAFTAR PEMBINAAN --- */
             <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
-               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
-                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-xl text-red-600"><i className="fa-solid fa-triangle-exclamation w-5 text-center"></i></div>
-                    Siswa Membutuhkan Tindak Lanjut Pembinaan
-                  </h2>
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 h-full flex flex-col">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <span className="w-2 h-6 bg-red-500 rounded-full inline-block"></span> 
+                      Murid Membutuhkan Tindak Lanjut Pembinaan
+                    </h3>
                </div>
                
-               <p className="text-sm text-slate-500 mb-6">Daftar di bawah ini adalah siswa-siswa yang skor akumulasi karakternya telah berada pada titik kritis. Segera hubungi Wali Kelas atau Guru BK untuk melakukan panggilan/pembinaan sesuai SOP SMAN 2 Ciamis.</p>
+               <p className="text-sm text-slate-500 mb-6">Daftar di bawah ini adalah murid-murid yang skor akumulasi karakternya telah berada pada titik kritis. Segera hubungi Wali Kelas atau Guru BK untuk melakukan panggilan/pembinaan sesuai SOP SMAN 2 Ciamis.</p>
 
                <div className="grid gap-4">
-                 {criticalStudents.length === 0 ? (
+                 {visibleCriticalStudents.length === 0 ? (
                     <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                       <i className="fa-solid fa-check-circle text-4xl mb-3 opacity-30 text-green-500"></i>
-                      <p className="text-sm font-medium">Luar Biasa! Saat ini tidak ada siswa yang berada pada batas kritis pembinaan.</p>
+                      <p className="text-sm font-medium">Luar Biasa! Saat ini tidak ada murid yang berada pada batas kritis pembinaan.</p>
                     </div>
                  ) : (
-                    criticalStudents.map(s => (
+                    visibleCriticalStudents.map(s => (
                       <div key={s.NISN} className="bg-white border-2 border-red-100 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-red-300 transition-colors shadow-sm">
                          <div className="flex items-center gap-5">
                             <div className="bg-red-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-red-200">
@@ -821,8 +875,8 @@
                             <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold border border-orange-200 w-full md:w-auto text-center">
                               Tindak Lanjut: {s.Status}
                             </div>
-                            <button className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all w-full md:w-auto flex items-center justify-center gap-2">
-                               <i className="fa-solid fa-check"></i> Tandai Telah Dibina
+                            <button onClick={() => handleTandaiDibina(s)} disabled={submitting} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all w-full md:w-auto flex items-center justify-center gap-2 disabled:opacity-50">
+                               <i className="fa-solid fa-check"></i> {submitting ? 'Memproses...' : 'Tandai Telah Dibina'}
                             </button>
                          </div>
                       </div>
@@ -856,8 +910,8 @@
                      {/* Filter Panel */}
                      <div className="flex-1 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end min-w-0">
                         <div className="w-full sm:flex-1 min-w-[150px]">
-                           <label className="block text-xs font-bold text-slate-500 mb-1">Nama Siswa</label>
-                           <input type="text" value={filterRekapNama} onChange={(e)=>setFilterRekapNama(e.target.value)} placeholder="Semua Siswa..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                           <label className="block text-xs font-bold text-slate-500 mb-1">Nama Murid</label>
+                           <input type="text" value={filterRekapNama} onChange={(e)=>setFilterRekapNama(e.target.value)} placeholder="Semua Murid..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
                         <div className="w-full sm:w-32 flex gap-4 sm:block">
                           <div className="flex-1">
@@ -930,9 +984,9 @@
                       <table className="w-full text-sm text-left whitespace-nowrap">
                         <thead className="bg-slate-900 text-white font-bold sticky top-0 z-10">
                           <tr>
-                            <th className="px-5 py-4 w-12 text-center">No.</th>
-                            <th className="px-5 py-4">Tanggal</th>
-                            <th className="px-5 py-4">Nama Siswa</th>
+                            <th className="px-5 py-4 w-16 text-center">No.</th>
+                            <th className="px-5 py-4">Tanggal & Waktu</th>
+                            <th className="px-5 py-4">Nama Murid</th>
                             <th className="px-5 py-4">Kelas</th>
                             <th className="px-5 py-4">Kategori</th>
                             <th className="px-5 py-4">Keterangan</th>
@@ -974,11 +1028,10 @@
 
           ) : activeMenu === 'masal' ? (
             
-            /* --- âš¡ MODE PIKET PAGI (MASAL) --- */
+            /* --- ⚡ MODE PIKET PAGI (MASAL) --- */
             <div className="grid lg:grid-cols-12 gap-8">
                <div className="lg:col-span-7 space-y-6">
-                 
-                 {/* Langkah 1: Pilih Tindakan */}
+                    {/* Langkah 1: Pilih Tindakan */}
                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
                    <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 pb-3 mb-4 gap-3">
                      <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -1001,7 +1054,13 @@
                    </div>
                    
                    <div className="mt-6 border-t border-slate-100 pt-6">
-                      <h3 className="text-sm font-bold text-slate-500 mb-4">Atau Cari Tindakan Lainnya:</h3>
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
+                        <h3 className="text-sm font-bold text-slate-500">Atau Cari Tindakan Lainnya:</h3>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                           <button onClick={() => setMasalJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
+                           <button onClick={() => setMasalJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
+                        </div>
+                      </div>
                       <div className="relative mb-4">
                         <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input 
@@ -1013,56 +1072,35 @@
                         />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2 flex items-center gap-1 border-b border-emerald-100 pb-1">
-                            <i className="fa-solid fa-award"></i> Prestasi
-                          </h4>
+                      <div className="h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
                           <div className="space-y-2">
                              {masterData.kategori
-                                .filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
+                                .filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
                                 .sort((a,b) => parseInt(a.Poin) - parseInt(b.Poin))
                                 .map(k => (
-                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-emerald-500 bg-emerald-100 shadow-md ring-2 ring-emerald-500 ring-offset-1' : 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-300'}`}>
+                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? (masalJenisTab === 'Prestasi' ? 'border-emerald-500 bg-emerald-100 shadow-md ring-2 ring-emerald-500 ring-offset-1' : 'border-amber-500 bg-amber-100 shadow-md ring-2 ring-amber-500 ring-offset-1') : (masalJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-300' : 'border-red-100 bg-red-50/30 hover:border-red-300')}`}>
                                   <div className="flex justify-between items-start gap-2">
-                                    <h5 className="font-bold text-slate-700 text-xs leading-tight">{k.NamaKategori}</h5>
-                                    <span className="font-black text-emerald-600 bg-emerald-200/50 px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center">+{k.Poin}</span>
+                                    <h5 className="font-bold text-slate-700 text-sm leading-tight">{k.NamaKategori}</h5>
+                                    <span className={`font-black ${masalJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-200/50' : 'text-red-600 bg-red-200/50'} px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center`}>{masalJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
                                   </div>
                                 </button>
                              ))}
+                             {masterData.kategori.filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase())).length === 0 && (
+                                <p className="text-slate-400 text-sm italic text-center py-4">Tidak ada tindakan yang cocok.</p>
+                             )}
                           </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-red-600 mb-2 flex items-center gap-1 border-b border-red-100 pb-1">
-                            <i className="fa-solid fa-triangle-exclamation"></i> Pelanggaran
-                          </h4>
-                          <div className="space-y-2">
-                             {masterData.kategori
-                                .filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
-                                .sort((a,b) => parseInt(b.Poin) - parseInt(a.Poin))
-                                .map(k => (
-                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-red-500 bg-red-100 shadow-md ring-2 ring-red-500 ring-offset-1' : 'border-red-100 bg-red-50/30 hover:border-red-300'}`}>
-                                  <div className="flex justify-between items-start gap-2">
-                                    <h5 className="font-bold text-slate-700 text-xs leading-tight">{k.NamaKategori}</h5>
-                                    <span className="font-black text-red-600 bg-red-200/50 px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center">{k.Poin}</span>
-                                  </div>
-                                </button>
-                             ))}
-                          </div>
-                        </div>
                       </div>
-                    </div>
+                   </div>
                  </div>
 
-                 {/* Langkah 2: Pilih Siswa Sistem Sentuh */}
+                 {/* Langkah 2: Pilih Murid Sistem Sentuh */}
                  <div className={`transition-all duration-300 ${!selectedKategoriMasal ? 'opacity-50 pointer-events-none' : ''}`}>
                    <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
                      <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
                        <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span> 
-                       Pilih Siswa (Tap/Klik Langsung)
+                       Pilih Murid (Tap/Klik Langsung)
                      </h2>
-                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang melanggar. Tidak perlu mengetik!</p>
+                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang melanggar. Tidak perlu mengetik!</p>
                      
                      <div className="flex flex-col sm:flex-row gap-3 mb-5">
                        <div className="flex-1 relative">
@@ -1097,7 +1135,7 @@
 
                      <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
                         {availableStudentsForMasal.length === 0 ? (
-                           <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
+                           <div className="text-center py-10 text-slate-400 font-medium">Tidak ada murid yang sesuai kriteria pencarian.</div>
                         ) : (
                            <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
                              {availableStudentsForMasal.map(s => {
@@ -1124,7 +1162,7 @@
                  {/* Keranjang Masal */}
                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 border border-slate-200 shadow-sm flex flex-col h-[80vh]">
                     <h3 className="text-lg font-bold mb-4 text-slate-800 border-b border-slate-100 pb-4">
-                      Daftar Eksekusi <span className="text-amber-600">({cartMasalSiswa.length} Siswa)</span>
+                      Daftar Eksekusi <span className="text-amber-600">({cartMasalSiswa.length} Murid)</span>
                     </h3>
                     
                     {selectedKategoriMasal && (
@@ -1141,7 +1179,7 @@
                       {cartMasalSiswa.length === 0 ? (
                         <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                           <i className="fa-solid fa-hand-pointer text-4xl mb-3 opacity-30"></i>
-                          <p className="text-sm font-medium">Belum ada siswa yang dipilih.<br/>Sentuh/klik nama siswa di sebelah kiri.</p>
+                          <p className="text-sm font-medium">Belum ada murid yang dipilih.<br/>Sentuh/klik nama murid di sebelah kiri.</p>
                         </div>
                       ) : (
                         cartMasalSiswa.map((s, idx) => (
@@ -1160,7 +1198,7 @@
                     </ul>
 
                     <button onClick={submitMasal} disabled={submitting || cartMasalSiswa.length===0} className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2">
-                      {submitting ? 'Menyimpan...' : <><i className="fa-solid fa-floppy-disk"></i> Simpan Poin ({cartMasalSiswa.length} Siswa)</>}
+                      {submitting ? 'Menyimpan...' : <><i className="fa-solid fa-floppy-disk"></i> Simpan Poin ({cartMasalSiswa.length} Murid)</>}
                     </button>
                  </div>
                </div>
@@ -1168,15 +1206,15 @@
 
           ) : (
 
-            /* --- ðŸ“ MODE INDIVIDU --- */
+            /* --- 📍 MODE INDIVIDU --- */
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-7 space-y-6">
                 
-                {/* 1. Pilih Siswa */}
+                {/* 1. Pilih Murid */}
                 <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm relative z-20">
                   <h2 className="text-lg font-bold mb-5 flex items-center gap-3 text-slate-800">
                     <div className="p-2 bg-blue-100 rounded-xl text-blue-600"><i className="fa-solid fa-user w-5 text-center"></i></div>
-                    Siapa siswa yang akan dicatat?
+                    Siapa murid yang akan dicatat?
                   </h2>
                   
                   {!selectedSiswa ? (
@@ -1274,10 +1312,11 @@
               {/* 3. Keranjang Input (Cart) */}
               <div className="lg:col-span-5">
                 <div className={`bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 transition-all duration-500 border ${cartIndividu.length > 0 ? 'border-blue-300 shadow-xl' : 'border-slate-200 shadow-sm'}`}>
-                   <h3 className="text-lg font-bold mb-6 flex justify-between items-center text-slate-800 border-b border-slate-100 pb-4">
-                     <span>Draft Refleksi Siswa</span>
+                   <button className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-4 rounded-xl font-bold flex items-center justify-between group transition-colors">
+                     <span>Draft Refleksi Murid</span>
+                     <i className="fa-solid fa-chevron-right group-hover:translate-x-1 transition-transform"></i>
                      <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">{cartIndividu.length} Item</span>
-                   </h3>
+                   </button>
 
                    {cartIndividu.length === 0 ? (
                      <div className="py-12 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
@@ -1377,13 +1416,18 @@
 
       useEffect(() => {
         apiCall('GET_SISWA_HISTORY', { nisn: user.nisn }).then(res => {
-          if (res.success) setHistory(res.data);
+          if (res.success) setHistory(res.data || []);
           setLoading(false);
-        });
+        }).catch(() => setLoading(false));
       }, []);
 
       const basePoin = 300;
-      const totalPoin = history.reduce((acc, curr) => acc + parseInt(curr.Poin || 0), basePoin); 
+      const totalPoin = history.reduce((acc, curr) => {
+         const p = Math.abs(parseInt(curr.poin || curr.Poin || 0));
+         if (curr.jenis === 'Prestasi' || curr.Jenis === 'Prestasi') return acc + p;
+         if (curr.jenis === 'Pelanggaran' || curr.Jenis === 'Pelanggaran') return acc - p;
+         return acc;
+      }, basePoin); 
       
       let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
       if (totalPoin <= 200 && totalPoin > 100) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; } 
