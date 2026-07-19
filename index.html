@@ -58,30 +58,69 @@
               if (s) resolve({ success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' }});
               else resolve({ success: false, message: 'NISN tidak ditemukan.' });
             }
-            else if (action === 'GET_MASTER_DATA') resolve({
-              success: true, 
-              siswa: mockSiswa,
-              kategori: [
-                {ID:'K1', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Terlambat Masuk Sekolah', Poin:'-5', Kriteria:'Bener', Desc:'Datang setelah bel masuk berbunyi.'}, 
-                {ID:'K2', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Membolos / Alpa', Poin:'-20', Kriteria:'Bener', Desc:'Tidak hadir tanpa keterangan.'},
-                {ID:'K3', Group: 'Kedisiplinan Waktu', Jenis:'Pelanggaran', NamaKategori:'Keluar Kelas Tanpa Izin', Poin:'-5', Kriteria:'Bener', Desc:'Meninggalkan KBM tanpa izin guru.'},
-                {ID:'K4', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Kriteria:'Bener', Desc:'Tidak memakai seragam sesuai ketentuan.'},
-                {ID:'K5', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Sepatu Tidak Hitam', Poin:'-5', Kriteria:'Bener', Desc:'Melanggar ketentuan warna sepatu.'},
-                {ID:'K6', Group: 'Kerapian & Atribut', Jenis:'Pelanggaran', NamaKategori:'Rambut Gondrong / Dicat', Poin:'-10', Kriteria:'Bener', Desc:'Rambut tidak rapi atau diwarnai.'},
-                {ID:'K7', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Membawa / Merokok', Poin:'-50', Kriteria:'Cageur', Desc:'Membawa rokok atau merokok di sekolah.'},
-                {ID:'K8', Group: 'Ketertiban & Etika', Jenis:'Pelanggaran', NamaKategori:'Berkelahi / Kekerasan', Poin:'-75', Kriteria:'Bageur', Desc:'Terlibat perkelahian fisik.'},
-                {ID:'K10', Group: 'Prestasi Akademik', Jenis:'Prestasi', NamaKategori:'Juara 1 Tingkat Kabupaten', Poin:'50', Kriteria:'Pinter', Desc:'Membawa nama baik sekolah.'}
-              ]
-            });
+            else if (action === 'GET_KATEGORI') {
+              setTimeout(() => {
+                 let stored = localStorage.getItem('kategoriPoin');
+                 if(!stored) {
+                    const initial = getInitialKategori();
+                    localStorage.setItem('kategoriPoin', JSON.stringify(initial));
+                    stored = JSON.stringify(initial);
+                 }
+                 resolve({ success: true, kategori: JSON.parse(stored) });
+              }, 500);
+            }
+            else if (action === 'SAVE_KATEGORI') {
+              setTimeout(() => {
+                 if (payload.password !== 'admin123') {
+                    resolve({ success: false, message: 'Password salah!' });
+                 } else {
+                    localStorage.setItem('kategoriPoin', JSON.stringify(payload.data));
+                    resolve({ success: true });
+                 }
+              }, 500);
+            }
+            else if (action === 'GET_MASTER_DATA') {
+              let stored = localStorage.getItem('kategoriPoin');
+              if(!stored) {
+                 const initial = getInitialKategori();
+                 localStorage.setItem('kategoriPoin', JSON.stringify(initial));
+                 stored = JSON.stringify(initial);
+              }
+              resolve({
+                success: true, 
+                siswa: mockSiswa,
+                kategori: JSON.parse(stored)
+              });
+            }
             else if (action === 'GET_SISWA_HISTORY') resolve({ success: true, data: [{ Tanggal:'2026-07-16', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Petugas:'Admin' }]});
             else if (action === 'GET_TODAY_RECORDS') {
               resolve({ success: true, data: mockTodayRecords });
             }
             else if (action === 'GET_CRITICAL_STUDENTS') {
-              resolve({ success: true, data: [
-                { NISN: '1005', Nama: 'Deni Saputra', Kelas: 'XII/Fase Lanjutan-1', SisaPoin: 45, Status: 'Wali Kelas' },
-                { NISN: '1010', Nama: 'Eka Wardana', Kelas: 'X/Fase E-3', SisaPoin: 15, Status: 'Guru BK / Surat Peringatan' }
-              ]});
+              const critical = [];
+              const mockMap = {
+                '1005': { SisaPoin: 95, Status: 'Wali Kelas' },
+                '1010': { SisaPoin: 45, Status: 'Guru BK / Surat Peringatan' }
+              };
+              const localMockSiswa = generateMockSiswa();
+              localMockSiswa.forEach(s => {
+                 let startPoin = mockMap[s.NISN] ? mockMap[s.NISN].SisaPoin : 300;
+                 let totalHariIni = 0;
+                 mockTodayRecords.filter(r => r.nama === s.Nama && r.kelas === s.Kelas).forEach(r => {
+                    totalHariIni += parseInt(r.poin) || 0;
+                 });
+                 let currentPoin = startPoin + totalHariIni;
+                 
+                 if (currentPoin <= 150) {
+                    let status = 'Guru/Wali Kelas';
+                    if (currentPoin <= 100) status = 'Wali Kelas / BK';
+                    if (currentPoin <= 50) status = 'BK / Surat Peringatan / Orang Tua';
+                    if (currentPoin <= 0) status = 'Kepala Sekolah / Dikembalikan';
+                    critical.push({ NISN: s.NISN, Nama: s.Nama, Kelas: s.Kelas, SisaPoin: currentPoin, Status: status });
+                 }
+              });
+              critical.sort((a,b) => a.SisaPoin - b.SisaPoin);
+              resolve({ success: true, data: critical });
             }
             else if (action === 'SUBMIT_RECORDS') {
               const now = new Date();
@@ -92,7 +131,7 @@
 
               if (payload.mode === 'masal') {
                  payload.siswa.forEach(s => {
-                   const isDuplicate = mockTodayRecords.find(r => r.nama === s.Nama && r.kategori === payload.kategori.NamaKategori);
+                   const isDuplicate = mockTodayRecords.find(r => r.nama === s.Nama && r.kelas === s.Kelas && r.kategori === payload.kategori.NamaKategori);
                    if (isDuplicate) {
                      duplicateMessages.push(s.Nama);
                    } else {
@@ -110,7 +149,7 @@
                  });
               } else {
                  payload.records.forEach(r => {
-                   const isDuplicate = mockTodayRecords.find(tr => tr.nama === payload.namaSiswa && tr.kategori === r.namaKategori);
+                   const isDuplicate = mockTodayRecords.find(tr => tr.nama === payload.namaSiswa && tr.kelas === payload.kelas && tr.kategori === r.namaKategori);
                    if (isDuplicate) {
                      duplicateMessages.push(r.namaKategori);
                    } else {
@@ -137,9 +176,9 @@
               }
 
               if (maxPoinSatuSiswa >= 75) {
-                 waMessage = "\n\n🔔 [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Guru BK!";
+                 waMessage = "\n\nðŸ”” [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Guru BK!";
               } else if (maxPoinSatuSiswa >= 50) {
-                 waMessage = "\n\n🔔 [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Wali Kelas!";
+                 waMessage = "\n\nðŸ”” [SIMULASI] Notifikasi WhatsApp otomatis terkirim ke Wali Kelas!";
               }
 
               if (duplicateMessages.length > 0 && addedCount === 0) {
@@ -264,6 +303,186 @@
       );
     }
 
+    const rawPDFText = `PEDOMAN PENILAIAN SIKAP / BUDI PEKERTI SMA NEGERI 2 CIAMIS APRESIASI NO URAIAN SKOR APRESIASI 1 Melaporkan tindakan pelanggaran / negatif yang dilakukan orang lain kepada pihak sekolah 10 2 Menyampaikan / melaporkan barang temuan 15 3 Tidak pernah melanggar tata tertib minimal 3 bulan berturut-turut 20 4 Tidak pernah melanggar tata tertib minimal 6 bulan berturut-turut 30 5 Tidak pernah melanggar tata tertib minimal 9 bulan berturut-turut 40 6 Tidak pernah melanggar tata tertib minimal 12 bulan berturut-turut 50 7 Terlibat dalam aksi sosial , seperti bakti sosial ke rumah yatim atau masyarakat , donor darah dan kegiatan sosial lainnya 15 8 Menjadi Ketua Kegiatan Ekstrakurikuler selama satu periode 20 9 Menjadi pengurus OSIS/MPK selama satu periode 30 10 Menjadi Ketua OSIS/MPK selama satu periode 40 11 Menjadi Petugas Upacara di sekolah 10 12 Berprestasi di tingkat sekolah ( Peringkat 10 besar di kelas ) 15 13 Menjadi peserta perlombaan / kegiatan yang mewakili sekolah 15 14 Juara 3 Kejuaraan Tingkat Kota/ Kabupaten 20 15 Juara 2 Kejuaraan Tingkat Kota/ Kabupaten 25 16 Juara 1 Kejuaraan Tingkat Kota/ Kabupaten 30 17 Juara 3 Kejuaraan Tingkat Provinsi 40 18 Juara 2 Kejuaraan Tingkat Provinsi 50 19 Juara 1 Kejuaraan Tingkat Provinsi 60 20 Juara 3 Kejuaraan Tingkat Nasional 70 21 Juara 2 Kejuaraan Tingkat Nasional 80 22 Juara 1 Kejuaraan Tingkat Nasional 90 23 Mendapatkan Juara di Kejuaraan Tingkat Internasional 100 SKOR PELANGGARAN NO URAIAN SKOR PELANGGARAN 1 Murid hadir di sekolah pukul 06.36 - 06.45 WIB 5 2 Murid hadir di sekolah pukul 06.46 - 07.00 WIB 10 3 Murid hadir di sekolah pukul 07.01 - 07.30 WIB 15 4 Murid hadir di sekolah pukul 07.31 - 08.00 WIB 20 5 Murid hadir di sekolah lebih dari pukul 08. 0 1 WIB 23 6 Murid tidak hadir ke sekolah tanpa keterangan (Alpa) 25 7 Murid tidak mengikuti kegiatan sekolah tanpa keterangan 20 8 Mengganggu ketertiban saat KBM berlangsung 5 9 Masuk kelas lebih dari 10 menit setiap pe r gantian jam pelajaran 5 10 Menggunakan alat komunikasi / smartphone dan perangkat lainnya tanpa seizin guru pengajar . 5 11 Meninggalkan kelas tanpa seizin guru pengajar / guru piket 5 12 Meninggalkan sekolah tanpa seizin wali kelas / guru piket 15 13 Melompat pagar / jendela sekolah untuk masuk / keluar 20 14 Menggunakan surat izin dari sekolah yang dimiliki orang lain 10 15 Murid tidak mengikuti shalat Jumat berjamaah 25 16 Murid tidak mengikuti Upacara Bendera 20 17 Berkumpul , makan , dan/ atau minum di kantin saat Kegiatan Belajar Mengajar 10 18 Menggunakan seragam sekolah ( termasuk sepatu , kaos kaki, dan kerudung ) tidak sesuai dengan ketentuan 5 19 Murid perempuan berdandan atau menggunakan segala jenis perhiasan / aksesoris lainnya secara berlebihan yang tidak sesuai dengan ketentuan 10 20 Murid laki-laki memakai segala jenis gelang , kalung , anting dan aksesoris lainnya yang tidak sesuai dengan ketentuan 10 21 Bertato ( permanen atau temporal) 100 22 Mengotori , mencoret , merusak inventaris atau barang milik teman , sekolah , Bapak Ibu Pendidik / Tenaga Kependidikan 20 23 Bercanda yang merugikan teman , bersikap kasar dan tidak sopan , baik melalui kata-kata maupun tulisan kepada sesama Murid, secara langsung maupun tidak langsung dan melalui media apapun . 15 24 Bersikap kasar dan tidak sopan , baik melalui kata-kata maupun tulisan kepada Bapak Ibu Pendidik / Tenaga Kependidikan / orang tua . 20 25 Menempel pengumuman / stiker /poster atau sejenisnya yang tidak sesuai dengan ketentuan sekolah 25 26 Memalsukan tanda tangan Kepala sekolah , Bapak/Ibu Pendidik /Tenaga Kependidikan 25 27 T erbukti mencontek dan / atau memberi contekan dalam ulangan harian dan ujian 15 28 Memalak / merampas barang milik Murid lain 30 29 Mengancam / mengintimidasi sesama Murid di dalam maupun di luar sekolah 50 30 Melakukan tindakan kekerasan verbal maupun nonverbal yang menyebabkan cedera fisik maupun psikis 100 31 Mengancam / mengintimidasi Kepala Sekolah, Bapak/Ibu Pendidik /Tenaga Kependidikan di dalam maupun di luar sekolah 200 32 Menganiaya , mengeroyok Kepala Sekolah, Bapak/Ibu Pendidik /Tenaga Kependidikan di dalam maupun di luar sekolah 301 33 T erbukti membawa / menghisap rokok /vape di lingkungan sekolah 30 34 Membawa , menerima , menyimpan / tersimpan / membuat , menyebarluaskan , dan atau memperjualbelikan segala jenis konten pornografi / asusila dalam bentuk apapun 50 35 Membuat, melakukan praktek hubungan badan dan atau ikut serta menyebarluaskan dalam bentuk apapun 301 36 T erbukti membawa atau memperjualbelikan alat kontrasepsi . 150 37 Membawa , mengkonsumsi atau memperjualbelikan narkoba , miras / minuman beralkohol di dalam lingkungan sekolah maupun di luar lingkungan sekolah 301 38 Bermain judi dalam segala bentuknya di lingkungan dan di luar sekolah 250 39 Membawa senjata tajam / senjata api 100 40 Menggunakan senjata tajam untuk mengancam atau melukai orang lain. 301 41 Menjadi provokator perkelahian sesama Murid 50 42 Menjadi provokator perkelahian Murid dengan sekolah lain. 150 43 Berkelahi , menyerang / mengeroyok sesama Murid 75 44 Berkelahi antar Murid dengan melibatkan sekolah lain 150 45 Melakukan perbuatan yang melanggar norma agama, seperti d uduk bersentuhan dengan lawan jenis ( bukan muhrim ) di lingkungan sekolah 30 46 Melakukan perbuatan yang melanggar norma agama, seperti p egangan tangan dengan lawan jenis 50 47 Melakukan perbuatan yang melanggar norma agama, seperti be rpelukan dengan lawan jenis , c ium / mencium / ciuman pipi/ bibir , T idur - tiduran dipangkuan dengan lawan jenis . 150 48 Melakukan hubungan badan , Hamil atau terbukti menghamili 301 49 Melakukan tindakan perundungan dan/ atau pelecehan seksual baik verbal maupun nonverbal. 50 50 Menampilkan atau mempublikasikan di media apapun dalam bentuk kata/ kalimat / foto / gambar /video yang mencemarkan nama baik sekolah 200 51 T erbukti melakukan tindakan kriminal / pencurian 200 52 Membawa / menggunakan / mengendarai kendaraan bermotor tidak sesuai ketentuan yang berlaku . 50 53 Menggunakan pakaian bebas di sekolah 5 54 Menggunakan sandal selama di sekolah saat jam KBM berlangsung 10 55 Membawa peralatan make up yang tidak sesuai ketentuan 10 56 Membawa barang-barang yang tidak sesuai ketentuan seperti kartu remi , gapleh , ataupun barang-barang yang tidak ada kaitannya dengan KBM. 10 57 Rambut murid laki-laki tidak sesuai ketentuan 10 58 Murid masih berada di lingkungan sekolah lebih dari pukul 17 . 30 WIB 15 59 Tidak melaksanakan piket kelas 5 60 Terbukti membuang sampah sembarangan 10`;
+    function getInitialKategori() {
+        let aprePart = rawPDFText.substring(rawPDFText.indexOf('SKOR APRESIASI 1'), rawPDFText.indexOf('SKOR PELANGGARAN'));
+        let pelanggaranPart = rawPDFText.substring(rawPDFText.indexOf('SKOR PELANGGARAN 1'));
+        let cats = [];
+        let idCounter = 1;
+        function parsePart(text, type) {
+            let regex = /(\d+)\s+(.*?)\s+(\d+)(?=\s+\d+\s+|$)/g;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                let uraian = match[2].trim().replace(/\s+/g, ' ');
+                let skor = parseInt(match[3]);
+                let poinStr = type === 'Prestasi' ? skor.toString() : '-' + skor.toString();
+                let group = type === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban';
+                cats.push({
+                    ID: (type === 'Prestasi' ? 'A' : 'V') + idCounter++,
+                    Group: group, Jenis: type, NamaKategori: uraian.length > 50 ? uraian.substring(0, 50) + '...' : uraian,
+                    Poin: poinStr, Kriteria: 'Umum', Desc: uraian
+                });
+            }
+        }
+        parsePart(aprePart, 'Prestasi');
+        idCounter = 1;
+        parsePart(pelanggaranPart, 'Pelanggaran');
+        return cats;
+    }
+
+    function PengaturanPoin({ masterData, setMasterData }) {
+      const [kategoriList, setKategoriList] = useState(masterData.kategori || []);
+      const [showModal, setShowModal] = useState(false);
+      const [password, setPassword] = useState('');
+      const [newKat, setNewKat] = useState({ NamaKategori: '', Poin: '', Jenis: 'Pelanggaran', Group: 'Pelanggaran Ketertiban' });
+      const [saving, setSaving] = useState(false);
+
+      useEffect(() => setKategoriList(masterData.kategori || []), [masterData.kategori]);
+
+      const handleAdd = () => {
+         if(!newKat.NamaKategori || !newKat.Poin) return alert('Isi nama dan poin!');
+         const isApresiasi = newKat.Jenis === 'Prestasi';
+         const newItem = {
+            ID: (isApresiasi ? 'A' : 'V') + Date.now(),
+            Group: newKat.Group, Jenis: newKat.Jenis,
+            NamaKategori: newKat.NamaKategori,
+            Poin: isApresiasi ? Math.abs(newKat.Poin).toString() : '-' + Math.abs(newKat.Poin).toString(),
+            Kriteria: 'Umum', Desc: newKat.NamaKategori
+         };
+         setKategoriList([...kategoriList, newItem]);
+         setNewKat({ NamaKategori: '', Poin: '', Jenis: 'Pelanggaran', Group: 'Pelanggaran Ketertiban' });
+      };
+
+      const handleDelete = (id) => {
+         if(confirm('Yakin hapus kategori ini?')) {
+            setKategoriList(kategoriList.filter(k => k.ID !== id));
+         }
+      };
+
+      const handleSave = async () => {
+         if(!password) return alert('Masukkan password!');
+         setSaving(true);
+         try {
+           const res = await apiCall('SAVE_KATEGORI', { password, data: kategoriList });
+           if(res.success) {
+              alert('Berhasil disimpan!');
+              setShowModal(false);
+              setPassword('');
+              setMasterData({...masterData, kategori: kategoriList});
+           } else {
+              alert(res.message);
+           }
+         } catch(e) {
+           alert('Error menyimpan data');
+         }
+         setSaving(false);
+      };
+
+      return (
+        <div className="space-y-6 animate-[fade-in_0.3s_ease-out] pb-20">
+          <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-slate-200 relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50 pointer-events-none"></div>
+             <h2 className="text-2xl font-black text-slate-800 mb-2 relative z-10">Pengaturan Poin & Kategori</h2>
+             <p className="text-slate-500 mb-6 relative z-10">Kelola daftar apresiasi dan pelanggaran sesuai buku saku.</p>
+             
+             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end relative z-10">
+                <div className="flex-1 min-w-[200px]">
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Nama Kategori</label>
+                   <input type="text" value={newKat.NamaKategori} onChange={e=>setNewKat({...newKat, NamaKategori: e.target.value})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="Cth: Telat masuk kelas" />
+                </div>
+                <div className="w-24">
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Poin</label>
+                   <input type="number" value={newKat.Poin} onChange={e=>setNewKat({...newKat, Poin: e.target.value})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="10" />
+                </div>
+                <div className="w-40">
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Jenis</label>
+                   <select value={newKat.Jenis} onChange={e=>setNewKat({...newKat, Jenis: e.target.value, Group: e.target.value === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban'})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500">
+                      <option value="Pelanggaran">Pelanggaran</option>
+                      <option value="Prestasi">Apresiasi</option>
+                   </select>
+                </div>
+                <button onClick={handleAdd} className="bg-slate-800 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-slate-700 transition-colors shadow-md">
+                   <i className="fa-solid fa-plus mr-2"></i> Tambah
+                </button>
+             </div>
+
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+               {/* TABEL APRESIASI */}
+               <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden flex flex-col max-h-[500px]">
+                  <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200 flex justify-between items-center sticky top-0 z-20">
+                     <h3 className="font-black text-emerald-700"><i className="fa-solid fa-star mr-2"></i> Daftar Apresiasi</h3>
+                     <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k=>k.Jenis==='Prestasi').length} item</span>
+                  </div>
+                  <div className="overflow-y-auto flex-1">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
+                         <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                          {kategoriList.filter(k=>k.Jenis==='Prestasi').map((k, idx) => (
+                             <tr key={k.ID} className="hover:bg-emerald-50/50">
+                               <td className="px-4 py-2 text-sm text-slate-700"><span className="text-emerald-500 font-bold mr-2">{idx+1}.</span> {k.NamaKategori}</td>
+                               <td className="px-4 py-2 font-black text-center text-emerald-600">{k.Poin}</td>
+                               <td className="px-4 py-2 text-center"><button onClick={()=>handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
+                             </tr>
+                          ))}
+                       </tbody>
+                     </table>
+                  </div>
+               </div>
+
+               {/* TABEL PELANGGARAN */}
+               <div className="bg-white rounded-xl border border-rose-200 overflow-hidden flex flex-col max-h-[500px]">
+                  <div className="bg-rose-50 px-4 py-3 border-b border-rose-200 flex justify-between items-center sticky top-0 z-20">
+                     <h3 className="font-black text-rose-700"><i className="fa-solid fa-triangle-exclamation mr-2"></i> Daftar Pelanggaran</h3>
+                     <span className="bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k=>k.Jenis==='Pelanggaran').length} item</span>
+                  </div>
+                  <div className="overflow-y-auto flex-1">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
+                         <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                          {kategoriList.filter(k=>k.Jenis==='Pelanggaran').map((k, idx) => (
+                             <tr key={k.ID} className="hover:bg-rose-50/50">
+                               <td className="px-4 py-2 text-sm text-slate-700"><span className="text-rose-500 font-bold mr-2">{idx+1}.</span> {k.NamaKategori}</td>
+                               <td className="px-4 py-2 font-black text-center text-rose-600">{k.Poin}</td>
+                               <td className="px-4 py-2 text-center"><button onClick={()=>handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
+                             </tr>
+                          ))}
+                       </tbody>
+                     </table>
+                  </div>
+               </div>
+             </div>
+             
+             <div className="mt-8 flex justify-end relative z-10">
+                <button onClick={()=>setShowModal(true)} className="bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-600/30 transition-all transform hover:-translate-y-1">
+                   <i className="fa-solid fa-save mr-2"></i> Simpan Perubahan
+                </button>
+             </div>
+          </div>
+
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-8 relative">
+                 <button onClick={()=>setShowModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark fa-xl"></i></button>
+                 <div className="text-center mb-6">
+                    <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><i className="fa-solid fa-lock text-3xl"></i></div>
+                    <h3 className="text-2xl font-black text-slate-800">Otorisasi Admin</h3>
+                    <p className="text-slate-500 text-sm mt-2">Masukkan password untuk menyimpan ke database.</p>
+                 </div>
+                 <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-center text-xl tracking-widest font-bold mb-6 transition-all" />
+                 <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all disabled:opacity-70 text-lg">
+                    {saving ? 'Menyimpan...' : 'Konfirmasi & Simpan'}
+                 </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function StudentSelector({ students, onSelect }) {
       const [isOpen, setIsOpen] = useState(false);
       const [search, setSearch] = useState('');
@@ -347,6 +566,12 @@
         });
       };
 
+      const fetchCriticalStudents = () => {
+        apiCall('GET_CRITICAL_STUDENTS', {}).then(res => {
+          if (res.success) setCriticalStudents(res.data);
+        });
+      };
+
       useEffect(() => {
         apiCall('GET_MASTER_DATA', {}).then(res => {
           if (res.success) {
@@ -357,9 +582,7 @@
           setLoading(false);
         });
         fetchRekap();
-        apiCall('GET_CRITICAL_STUDENTS', {}).then(res => {
-          if (res.success) setCriticalStudents(res.data);
-        });
+        fetchCriticalStudents();
       }, []);
 
       // Saat pindah ke tab rekap, fetch ulang
@@ -368,12 +591,14 @@
       }, [activeMenu]);
 
       const groupedKategori = useMemo(() => {
-        const groups = {};
-        masterData.kategori.forEach(k => {
+        const groups = { 'Apresiasi Karakter': [], 'Pelanggaran Ketertiban': [] };
+        const sorted = [...masterData.kategori].sort((a,b) => Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin)));
+        sorted.forEach(k => {
           const g = k.Group || 'Lainnya';
           if(!groups[g]) groups[g] = [];
           groups[g].push(k);
         });
+        Object.keys(groups).forEach(key => { if(groups[key].length === 0) delete groups[key]; });
         return groups;
       }, [masterData.kategori]);
 
@@ -409,6 +634,7 @@
         if (res.success) {
           alert(res.message);
           setCartMasalSiswa([]);
+          fetchCriticalStudents();
         } else alert(res.message);
       }
 
@@ -426,6 +652,7 @@
           alert(res.message);
           setSelectedSiswa(null);
           setCartIndividu([]);
+          fetchCriticalStudents();
         } else alert(res.message);
       };
 
@@ -436,7 +663,9 @@
         { id: 'masal', icon: 'fa-bolt', label: 'Piket Pagi', color: 'text-amber-500' },
         { id: 'individu', icon: 'fa-user-pen', label: 'Mode Detail', color: 'text-blue-600' },
         { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekap Harian', color: 'text-emerald-600' },
-        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: criticalStudents.length }
+        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: criticalStudents.length },
+        { id: 'panduan', icon: 'fa-book', label: 'Buku Saku', color: 'text-purple-600' },
+        { id: 'pengaturan', icon: 'fa-gear', label: 'Pengaturan Poin', color: 'text-slate-600' }
       ];
 
       return (
@@ -510,9 +739,56 @@
                     </div>
                  )}
               </div>
+          ) : activeMenu === 'pengaturan' ? (
+              <PengaturanPoin masterData={masterData} setMasterData={setMasterData} />
+          ) : activeMenu === 'panduan' ? (
+              <div className="bg-white rounded-[2rem] p-6 lg:p-10 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
+                 <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
+                    <div className="bg-purple-100 text-purple-600 p-4 rounded-2xl"><i className="fa-solid fa-book-open text-2xl"></i></div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-800">Panduan Pembentukan Karakter</h2>
+                      <p className="text-sm text-slate-500">Ringkasan Buku Saku SMA Negeri 2 Ciamis</p>
+                    </div>
+                 </div>
+
+                 <div className="space-y-6">
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                      <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-star text-amber-500 mr-2"></i> 5 Pilar Karakter (SMANDACIS)</h3>
+                      <ul className="list-disc pl-5 space-y-2 text-sm text-slate-600">
+                         <li><strong>Cageur:</strong> Sehat jasmani dan rohani.</li>
+                         <li><strong>Bageur:</strong> Berakhlak mulia, peduli sesama dan lingkungan.</li>
+                         <li><strong>Bener:</strong> Berpikir kritis, jujur, disiplin, bertanggung jawab.</li>
+                         <li><strong>Pinter:</strong> Cerdas, komunikatif, berwawasan kebangsaan.</li>
+                         <li><strong>Singer:</strong> Kreatif, inovatif, adaptif.</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                      <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-shirt text-blue-500 mr-2"></i> Aturan Seragam (Bab VI)</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-600">
+                         <div><strong>Senin:</strong> Putih Abu-abu (Lengkap Atribut)</div>
+                         <div><strong>Selasa:</strong> Batik SMA Negeri 2 Ciamis</div>
+                         <div><strong>Rabu:</strong> Pramuka Lengkap</div>
+                         <div><strong>Kamis:</strong> Pangsi (L) / Kebaya (P)</div>
+                         <div><strong>Jumat:</strong> Busana Muslim</div>
+                         <div><strong>Olahraga:</strong> Kaos & Training SMANDACIS</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                      <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-hands-holding-circle text-emerald-500 mr-2"></i> Tahapan Pembinaan (Bab XII)</h3>
+                      <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-600">
+                         <li>Dialog langsung & pengingat dari Guru/Wali Kelas. (0-100 poin pelanggaran)</li>
+                         <li>Penerapan sistem poin & pemantauan perkembangan sikap. (101-200 poin)</li>
+                         <li>Penyusunan Surat Komitmen Refleksi (1, 2, dan 3).</li>
+                         <li>Peninjauan bersama Orang Tua (Kritis &gt; 250 poin pelanggaran / Sisa Poin &le; 50).</li>
+                      </ol>
+                    </div>
+                 </div>
+              </div>
           ) : activeMenu === 'pembinaan' ? (
             
-            /* --- 🛡️ MODE DAFTAR PEMBINAAN --- */
+            /* --- ðŸ›¡ï¸ MODE DAFTAR PEMBINAAN --- */
             <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
@@ -558,7 +834,7 @@
 
           ) : activeMenu === 'rekap' ? (
             
-            /* --- 📅 MODE REKAP HARI INI --- */
+            /* --- ðŸ“… MODE REKAP HARI INI --- */
             <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
@@ -610,7 +886,7 @@
 
           ) : activeMenu === 'masal' ? (
             
-            /* --- ⚡ MODE PIKET PAGI (MASAL) --- */
+            /* --- âš¡ MODE PIKET PAGI (MASAL) --- */
             <div className="grid lg:grid-cols-12 gap-8">
                <div className="lg:col-span-7 space-y-6">
                  
@@ -622,7 +898,7 @@
                    </h2>
                    
                    <div className="grid grid-cols-2 gap-3 mb-4">
-                     {masterData.kategori.filter(k=>k.Group==='Kedisiplinan Waktu' || k.Group==='Kerapian & Atribut').slice(0,4).map(k => (
+                     {masterData.kategori.filter(k=>k.Jenis==='Pelanggaran').slice(0,4).map(k => (
                        <button 
                          key={k.ID} onClick={() => setSelectedKategoriMasal(k)}
                          className={`p-4 rounded-xl text-left border-2 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
@@ -639,7 +915,13 @@
                      onChange={(e) => setSelectedKategoriMasal(masterData.kategori.find(k=>k.ID===e.target.value))}
                    >
                      <option value="" disabled>-- Atau pilih kategori lainnya --</option>
-                     {masterData.kategori.map(k => <option key={k.ID} value={k.ID}>{k.NamaKategori} ({k.Poin} Poin)</option>)}
+                     {Object.keys(groupedKategori).map(groupName => (
+                         <optgroup key={groupName} label={groupName}>
+                           {groupedKategori[groupName].map(k => (
+                             <option key={k.ID} value={k.ID}>{k.NamaKategori} ({k.Poin} Poin)</option>
+                           ))}
+                         </optgroup>
+                       ))}
                    </select>
                  </div>
 
@@ -746,7 +1028,7 @@
 
           ) : (
 
-            /* --- 📝 MODE INDIVIDU --- */
+            /* --- ðŸ“ MODE INDIVIDU --- */
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-7 space-y-6">
                 
@@ -886,13 +1168,13 @@
         });
       }, []);
 
-      const basePoin = 100;
+      const basePoin = 300;
       const totalPoin = history.reduce((acc, curr) => acc + parseInt(curr.Poin || 0), basePoin); 
       
       let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
-      if (totalPoin <= 80 && totalPoin > 60) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; } 
-      else if (totalPoin <= 60 && totalPoin > 40) { statusPembinaan = "Peringatan: Jadwal Pembinaan dengan Guru BK menanti."; colorPembinaan = "text-orange-700 bg-orange-50 border-orange-200"; iconPembinaan = "fa-solid fa-shield-virus"; } 
-      else if (totalPoin <= 40) { statusPembinaan = "Kritis: Pemanggilan Orang Tua (Surat SP)."; colorPembinaan = "text-red-700 bg-red-50 border-red-200"; iconPembinaan = "fa-solid fa-circle-xmark"; }
+      if (totalPoin <= 200 && totalPoin > 100) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; } 
+      else if (totalPoin <= 100 && totalPoin > 50) { statusPembinaan = "Peringatan: Jadwal Pembinaan dengan Guru BK menanti."; colorPembinaan = "text-orange-700 bg-orange-50 border-orange-200"; iconPembinaan = "fa-solid fa-shield-virus"; } 
+      else if (totalPoin <= 50) { statusPembinaan = "Kritis: Pemanggilan Orang Tua (Surat SP)."; colorPembinaan = "text-red-700 bg-red-50 border-red-200"; iconPembinaan = "fa-solid fa-circle-xmark"; }
 
       if (loading) return <div className="text-center py-20 text-blue-500 font-bold">MEMUAT RAPOR KARAKTER...</div>;
 
@@ -928,3 +1210,4 @@
   </script>
 </body>
 </html>
+
