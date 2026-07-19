@@ -63,13 +63,10 @@
         return { success: res.success, kategori: res.kategori || [] };
       }
       if (action === 'GET_SISWA_HISTORY') {
-        const res = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'GET_ALL_RECORDS', payload: {} })
-        }).then(r => r.json()).catch(() => ({ success: false }));
+        const res = await apiCall('GET_ALL_RECORDS');
         if (res.success) {
           const studentName = cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
-          const history = (res.records || []).filter(d => d.nama === studentName);
+          const history = (res.data || []).filter(d => d.namaSiswa === studentName || d.nama === studentName);
           return { success: true, data: history };
         }
         return { success: false, data: [] };
@@ -1431,10 +1428,17 @@
 
       const basePoin = 300;
       const totalPoin = history.reduce((acc, curr) => {
-        const p = Math.abs(parseInt(curr.poin || curr.Poin || 0));
-        if (curr.jenis === 'Prestasi' || curr.Jenis === 'Prestasi') return acc + p;
-        if (curr.jenis === 'Pelanggaran' || curr.Jenis === 'Pelanggaran') return acc - p;
-        return acc;
+        let p = parseInt(curr.poin || curr.Poin || 0);
+        if (isNaN(p)) p = 0;
+        
+        let j = (curr.jenis || curr.Jenis || curr.NamaKategori || '').toLowerCase();
+        // Jika mengandung kata prestasi atau apresiasi, maka ditambahkan
+        if (j.includes('prestasi') || j.includes('apresiasi')) {
+          return acc + Math.abs(p);
+        }
+        
+        // Selebihnya (termasuk pelanggaran), SELALU dikurangi
+        return acc - Math.abs(p);
       }, basePoin);
 
       let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
@@ -1464,7 +1468,7 @@
             <h3 className="text-lg font-bold mb-4 text-slate-800 border-b pb-4"><i className="fa-solid fa-clock-rotate-left text-blue-600"></i> Riwayat Refleksi</h3>
             {history.length === 0 ? <p className="text-center py-10 text-slate-500">Belum ada riwayat tercatat.</p> : (
               <table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="px-5 py-3">Tanggal</th><th className="px-5 py-3">Keterangan</th><th className="px-5 py-3 text-center">Poin</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.Poin}</td></tr>)}</tbody></table>
+                <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.tanggal || h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.namaKategori || h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.poin || h.Poin}</td></tr>)}</tbody></table>
             )}
           </div>
         </div>
