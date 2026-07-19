@@ -65,7 +65,7 @@
       if (action === 'GET_SISWA_HISTORY') {
         const res = await apiCall('GET_ALL_RECORDS');
         if (res.success) {
-          const studentName = cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
+          const studentName = payload.nama || cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
           const history = (res.data || []).filter(d => d.namaSiswa === studentName || d.nama === studentName);
           return { success: true, data: history };
         }
@@ -1420,26 +1420,33 @@
       const [loading, setLoading] = useState(true);
 
       useEffect(() => {
-        apiCall('GET_SISWA_HISTORY', { nisn: user.nisn }).then(res => {
+        apiCall('GET_SISWA_HISTORY', { nisn: user.nisn, nama: user.nama }).then(res => {
           if (res.success) setHistory(res.data || []);
           setLoading(false);
         }).catch(() => setLoading(false));
       }, []);
 
       const basePoin = 300;
-      const totalPoin = history.reduce((acc, curr) => {
-        let p = parseInt(curr.poin || curr.Poin || 0);
-        if (isNaN(p)) p = 0;
-        
-        let j = (curr.jenis || curr.Jenis || curr.NamaKategori || '').toLowerCase();
-        // Jika mengandung kata prestasi atau apresiasi, maka ditambahkan
-        if (j.includes('prestasi') || j.includes('apresiasi')) {
-          return acc + Math.abs(p);
-        }
-        
-        // Selebihnya (termasuk pelanggaran), SELALU dikurangi
-        return acc - Math.abs(p);
-      }, basePoin);
+      let calculatedPoin = basePoin;
+
+      if (history && history.length > 0) {
+        history.forEach(curr => {
+          // Bersihkan semua karakter kecuali angka
+          let rawString = String(curr.poin || curr.Poin || '0').replace(/[^0-9]/g, '');
+          let p = parseInt(rawString, 10);
+          if (isNaN(p)) p = 0;
+
+          let j = String(curr.jenis || curr.Jenis || curr.namaKategori || curr.NamaKategori || '').toLowerCase();
+
+          if (j.includes('prestasi') || j.includes('apresiasi') || j.includes('positif')) {
+            calculatedPoin += p;
+          } else {
+            calculatedPoin -= p;
+          }
+        });
+      }
+
+      const totalPoin = calculatedPoin;
 
       let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
       if (totalPoin <= 200 && totalPoin > 100) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; }
@@ -1457,7 +1464,7 @@
             </div>
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 text-center min-w-[140px]">
               <p className="text-[10px] uppercase text-slate-500 mb-2 font-bold">Skor Karakter</p>
-              <p className={`text-6xl font-black leading-none ${totalPoin >= 100 ? 'text-green-500' : 'text-red-500'}`}>{totalPoin}</p>
+              <p className={`text-6xl font-black leading-none ${totalPoin < 0 ? 'text-red-600' : (totalPoin < 100 ? 'text-orange-500' : 'text-green-500')}`}>{totalPoin}</p>
             </div>
           </div>
           <div className={`border p-5 rounded-2xl flex items-center gap-4 shadow-sm ${colorPembinaan}`}>
@@ -1468,7 +1475,18 @@
             <h3 className="text-lg font-bold mb-4 text-slate-800 border-b pb-4"><i className="fa-solid fa-clock-rotate-left text-blue-600"></i> Riwayat Refleksi</h3>
             {history.length === 0 ? <p className="text-center py-10 text-slate-500">Belum ada riwayat tercatat.</p> : (
               <table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="px-5 py-3">Tanggal</th><th className="px-5 py-3">Keterangan</th><th className="px-5 py-3 text-center">Poin</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.tanggal || h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.namaKategori || h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.poin || h.Poin}</td></tr>)}</tbody></table>
+                <tbody className="divide-y divide-slate-100">{history.map((h, i) => {
+                  let isPrestasi = (h.jenis || h.Jenis || h.namaKategori || h.NamaKategori || '').toLowerCase().includes('prestasi');
+                  let pVal = parseInt(h.poin || h.Poin || 0);
+                  let isMinus = pVal < 0 || !isPrestasi;
+                  return (
+                    <tr key={i}>
+                      <td className="px-5 py-3 font-bold text-slate-800">{h.tanggal || h.Tanggal}</td>
+                      <td className="px-5 py-3 text-slate-600">{h.keterangan || h.Keterangan || h.deskripsi || h.Deskripsi || h.namaKategori || h.NamaKategori || '-'}</td>
+                      <td className={`px-5 py-3 text-center font-black ${isMinus ? 'text-red-600' : 'text-emerald-500'}`}>{h.poin || h.Poin}</td>
+                    </tr>
+                  );
+                })}</tbody></table>
             )}
           </div>
         </div>
