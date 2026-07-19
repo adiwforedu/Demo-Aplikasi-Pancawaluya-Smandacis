@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,12 +11,26 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.4); }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.4);
+    }
   </style>
 </head>
+
 <body class="bg-slate-50 min-h-screen text-slate-800 font-sans pb-10 selection:bg-blue-200">
 
   <div id="root"></div>
@@ -23,7 +38,7 @@
   <!-- BINDING & MOCKUP DATA LOKAL -->
   <script>
     const { useState, useEffect, useMemo, useRef } = React;
-    
+
     // DEMO DATA 
     // Konfigurasi API
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGt20bxq_IH7IL3CzjcaQ9566FGSzzkjfN5O44316KQHtwze56DTabQwb9Us3fW0nz/exec";
@@ -31,33 +46,33 @@
 
     const apiCall = async (action, payload = {}) => {
       if (action === 'LOGIN_ADMIN') {
-         if (payload.nip === 'admin') return { success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'Admin' } };
-         if (payload.nip === 'GTK' && payload.password === 'GTK123') return { success: true, user: { nip: 'GTK', nama: 'Guru / Tenaga Kependidikan', role: 'GTK' } };
+        if (payload.nip === 'admin') return { success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'Admin' } };
+        if (payload.nip === 'GTK' && payload.password === 'GTK123') return { success: true, user: { nip: 'GTK', nama: 'Guru / Tenaga Kependidikan', role: 'GTK' } };
       }
       if (action === 'LOGIN_SISWA') {
-         if (cachedSiswa.length === 0) {
-            const res = await apiCall('GET_MASTER_DATA');
-            if (res.success) cachedSiswa = res.siswa;
-         }
-         const s = cachedSiswa.find(x => x.NISN === payload.nisn);
-         if (s) return { success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' } };
-         return { success: false, message: 'NISN tidak ditemukan di Database.' };
+        if (cachedSiswa.length === 0) {
+          const res = await apiCall('GET_MASTER_DATA');
+          if (res.success) cachedSiswa = res.siswa;
+        }
+        const s = cachedSiswa.find(x => x.NISN === payload.nisn);
+        if (s) return { success: true, user: { nisn: s.NISN, nama: s.Nama, kelas: s.Kelas, role: 'Siswa' } };
+        return { success: false, message: 'NISN tidak ditemukan di Database.' };
       }
       if (action === 'GET_KATEGORI') {
-          const res = await apiCall('GET_MASTER_DATA');
-          return { success: res.success, kategori: res.kategori || [] };
+        const res = await apiCall('GET_MASTER_DATA');
+        return { success: res.success, kategori: res.kategori || [] };
       }
       if (action === 'GET_SISWA_HISTORY') {
-          const res = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'GET_ALL_RECORDS', payload: {} })
-          }).then(r=>r.json()).catch(()=>({success:false}));
-          if (res.success) {
-              const studentName = cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
-              const history = (res.records || []).filter(d => d.nama === studentName);
-              return { success: true, data: history };
-          }
-          return { success: false, data: [] };
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'GET_ALL_RECORDS', payload: {} })
+        }).then(r => r.json()).catch(() => ({ success: false }));
+        if (res.success) {
+          const studentName = cachedSiswa.find(x => x.NISN === payload.nisn)?.Nama || payload.nisn;
+          const history = (res.records || []).filter(d => d.nama === studentName);
+          return { success: true, data: history };
+        }
+        return { success: false, data: [] };
       }
       try {
         const response = await fetch(SCRIPT_URL, {
@@ -65,30 +80,30 @@
           body: JSON.stringify({ action, payload })
         });
         const data = await response.json();
-        
+
         if (action === 'GET_MASTER_DATA' && data.success) {
-           cachedSiswa = data.siswa;
-           if (data.kategori) {
-               data.kategori.forEach((k, idx) => {
-                   k.ID = k.ID || ('KAT' + idx);
-                   if (k.Jenis && k.Jenis.toLowerCase().includes('prestasi')) k.Jenis = 'Prestasi';
-                   else k.Jenis = 'Pelanggaran';
-               });
-           }
+          cachedSiswa = data.siswa;
+          if (data.kategori) {
+            data.kategori.forEach((k, idx) => {
+              k.ID = k.ID || ('KAT' + idx);
+              if (k.Jenis && k.Jenis.toLowerCase().includes('prestasi')) k.Jenis = 'Prestasi';
+              else k.Jenis = 'Pelanggaran';
+            });
+          }
         }
-        
+
         if (action === 'SUBMIT_RECORDS' && data.success) {
-           let maxPoin = 0;
-           if (payload.mode === 'masal') {
-              maxPoin = Math.abs(parseInt(payload.kategori.Poin));
-           } else if (payload.records) {
-              maxPoin = payload.records.reduce((acc, r) => acc + Math.abs(parseInt(r.poin)), 0);
-           }
-           let waMsg = "";
-           if (maxPoin >= 75) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Guru BK!";
-           else if (maxPoin >= 50) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Wali Kelas!";
-           
-           data.message = data.message + waMsg;
+          let maxPoin = 0;
+          if (payload.mode === 'masal') {
+            maxPoin = Math.abs(parseInt(payload.kategori.Poin));
+          } else if (payload.records) {
+            maxPoin = payload.records.reduce((acc, r) => acc + Math.abs(parseInt(r.poin)), 0);
+          }
+          let waMsg = "";
+          if (maxPoin >= 75) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Guru BK!";
+          else if (maxPoin >= 50) waMsg = "\n\n🔔 Notifikasi WhatsApp (Simulasi) dikirim ke Wali Kelas!";
+
+          data.message = data.message + waMsg;
         }
 
         return data;
@@ -107,7 +122,7 @@
         try {
           const savedUser = localStorage.getItem('gapura_user_v9');
           if (savedUser && savedUser !== 'undefined') setUser(JSON.parse(savedUser));
-        } catch (e) {}
+        } catch (e) { }
         setLoading(false);
       }, []);
 
@@ -115,20 +130,20 @@
       const handleLogout = () => { setUser(null); localStorage.removeItem('gapura_user_v9'); };
 
       if (loading) return null;
-      
+
       return (
         <div className="animate-[fade-in_0.3s_ease-out]">
           <header className="bg-blue-700 shadow-md sticky top-0 z-40">
             <div className="container mx-auto max-w-7xl px-4 py-3 lg:px-8 flex justify-between items-center">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden p-1">
-                   <img src="https://lh3.googleusercontent.com/d/1YdTmngsIMNTzi_4BQ-WREQzWV3ZW6HXm" alt="Logo Sekolah" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  <img src="https://lh3.googleusercontent.com/d/1YdTmngsIMNTzi_4BQ-WREQzWV3ZW6HXm" alt="Logo Sekolah" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                 </div>
                 <div>
                   <p className="text-[10px] lg:text-xs text-blue-200 font-light tracking-[0.2em] uppercase opacity-90 mb-0.5">Pembentukan Karakter</p>
                   <div className="flex items-baseline gap-2">
-                     <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white">Gapura Pancawaluya</h1>
-                     <span className="text-lg lg:text-xl font-light text-white opacity-90 tracking-wide">SMAN 2 CIAMIS</span>
+                    <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white">Gapura Pancawaluya</h1>
+                    <span className="text-lg lg:text-xl font-light text-white opacity-90 tracking-wide">SMAN 2 CIAMIS</span>
                   </div>
                 </div>
               </div>
@@ -149,9 +164,9 @@
 
     function Login({ onLogin }) {
       const [role, setRole] = useState('Admin');
-      const [nip, setNip] = useState('admin'); 
-      const [password, setPassword] = useState('admin'); 
-      const [nisn, setNisn] = useState(''); 
+      const [nip, setNip] = useState('admin');
+      const [password, setPassword] = useState('admin');
+      const [nisn, setNisn] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
 
@@ -171,11 +186,11 @@
         <div className="bg-white rounded-[2rem] p-8 lg:p-12 shadow-xl border border-slate-100 max-w-md mx-auto mt-10 relative overflow-hidden animate-[fade-in_0.3s_ease-out]">
           <div className="relative z-10">
             <h2 className="text-2xl font-bold mb-8 text-center text-slate-800">Sistem Login</h2>
-            
+
             <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8 overflow-x-auto">
-              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('Admin'); setNip('admin'); setPassword('admin');}}>Admin</button>
-              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'GTK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('GTK'); setNip('GTK'); setPassword('GTK123');}}>GTK</button>
-              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('Siswa'); setNisn('');}}>Murid</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('Admin'); setNip('admin'); setPassword('admin'); }}>Admin</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'GTK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('GTK'); setNip('GTK'); setPassword('GTK123'); }}>GTK</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('Siswa'); setNisn(''); }}>Murid</button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -183,22 +198,22 @@
                 <>
                   <div>
                     <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">Username / NIP</label>
-                    <input type="text" required value={nip} onChange={e=>setNip(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+                    <input type="text" required value={nip} onChange={e => setNip(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">Password</label>
-                    <input type="password" required value={password} onChange={e=>setPassword(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
                   </div>
                 </>
               ) : (
                 <div>
                   <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">NISN / NIS</label>
-                  <input type="text" required value={nisn} onChange={e=>setNisn(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-center text-xl tracking-widest font-mono transition-all" placeholder="Masukkan NISN..." />
+                  <input type="text" required value={nisn} onChange={e => setNisn(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-center text-xl tracking-widest font-mono transition-all" placeholder="Masukkan NISN..." />
                 </div>
               )}
-              
+
               {error && <div className="text-red-700 text-sm bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3"><i className="fa-solid fa-triangle-exclamation mt-0.5 text-red-500"></i> <p>{error}</p></div>}
-              
+
               <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 mt-8 transition-all flex justify-center items-center gap-2">
                 {loading ? 'Memverifikasi...' : <><span className="tracking-wide">Masuk Dashboard</span> <i className="fa-solid fa-chevron-right"></i></>}
               </button>
@@ -210,29 +225,29 @@
 
     const rawPDFText = `PEDOMAN PENILAIAN SIKAP / BUDI PEKERTI SMA NEGERI 2 CIAMIS APRESIASI NO URAIAN SKOR APRESIASI 1 Melaporkan tindakan pelanggaran / negatif yang dilakukan orang lain kepada pihak sekolah 10 2 Menyampaikan / melaporkan barang temuan 15 3 Tidak pernah melanggar tata tertib minimal 3 bulan berturut-turut 20 4 Tidak pernah melanggar tata tertib minimal 6 bulan berturut-turut 30 5 Tidak pernah melanggar tata tertib minimal 9 bulan berturut-turut 40 6 Tidak pernah melanggar tata tertib minimal 12 bulan berturut-turut 50 7 Terlibat dalam aksi sosial , seperti bakti sosial ke rumah yatim atau masyarakat , donor darah dan kegiatan sosial lainnya 15 8 Menjadi Ketua Kegiatan Ekstrakurikuler selama satu periode 20 9 Menjadi pengurus OSIS/MPK selama satu periode 30 10 Menjadi Ketua OSIS/MPK selama satu periode 40 11 Menjadi Petugas Upacara di sekolah 10 12 Berprestasi di tingkat sekolah ( Peringkat 10 besar di kelas ) 15 13 Menjadi peserta perlombaan / kegiatan yang mewakili sekolah 15 14 Juara 3 Kejuaraan Tingkat Kota/ Kabupaten 20 15 Juara 2 Kejuaraan Tingkat Kota/ Kabupaten 25 16 Juara 1 Kejuaraan Tingkat Kota/ Kabupaten 30 17 Juara 3 Kejuaraan Tingkat Provinsi 40 18 Juara 2 Kejuaraan Tingkat Provinsi 50 19 Juara 1 Kejuaraan Tingkat Provinsi 60 20 Juara 3 Kejuaraan Tingkat Nasional 70 21 Juara 2 Kejuaraan Tingkat Nasional 80 22 Juara 1 Kejuaraan Tingkat Nasional 90 23 Mendapatkan Juara di Kejuaraan Tingkat Internasional 100 SKOR PELANGGARAN NO URAIAN SKOR PELANGGARAN 1 Murid hadir di sekolah pukul 06.36 - 06.45 WIB 5 2 Murid hadir di sekolah pukul 06.46 - 07.00 WIB 10 3 Murid hadir di sekolah pukul 07.01 - 07.30 WIB 15 4 Murid hadir di sekolah pukul 07.31 - 08.00 WIB 20 5 Murid hadir di sekolah lebih dari pukul 08. 0 1 WIB 23 6 Murid tidak hadir ke sekolah tanpa keterangan (Alpa) 25 7 Murid tidak mengikuti kegiatan sekolah tanpa keterangan 20 8 Mengganggu ketertiban saat KBM berlangsung 5 9 Masuk kelas lebih dari 10 menit setiap pe r gantian jam pelajaran 5 10 Menggunakan alat komunikasi / smartphone dan perangkat lainnya tanpa seizin guru pengajar . 5 11 Meninggalkan kelas tanpa seizin guru pengajar / guru piket 5 12 Meninggalkan sekolah tanpa seizin wali kelas / guru piket 15 13 Melompat pagar / jendela sekolah untuk masuk / keluar 20 14 Menggunakan surat izin dari sekolah yang dimiliki orang lain 10 15 Murid tidak mengikuti shalat Jumat berjamaah 25 16 Murid tidak mengikuti Upacara Bendera 20 17 Berkumpul , makan , dan/ atau minum di kantin saat Kegiatan Belajar Mengajar 10 18 Menggunakan seragam sekolah ( termasuk sepatu , kaos kaki, dan kerudung ) tidak sesuai dengan ketentuan 5 19 Murid perempuan berdandan atau menggunakan segala jenis perhiasan / aksesoris lainnya secara berlebihan yang tidak sesuai dengan ketentuan 10 20 Murid laki-laki memakai segala jenis gelang , kalung , anting dan aksesoris lainnya yang tidak sesuai dengan ketentuan 10 21 Bertato ( permanen atau temporal) 100 22 Mengotori , mencoret , merusak inventaris atau barang milik teman , sekolah , Bapak Ibu Pendidik / Tenaga Kependidikan 20 23 Bercanda yang merugikan teman , bersikap kasar dan tidak sopan , baik melalui kata-kata maupun tulisan kepada sesama Murid, secara langsung maupun tidak langsung dan melalui media apapun . 15 24 Bersikap kasar dan tidak sopan , baik melalui kata-kata maupun tulisan kepada Bapak Ibu Pendidik / Tenaga Kependidikan / orang tua . 20 25 Menempel pengumuman / stiker /poster atau sejenisnya yang tidak sesuai dengan ketentuan sekolah 25 26 Memalsukan tanda tangan Kepala sekolah , Bapak/Ibu Pendidik /Tenaga Kependidikan 25 27 T erbukti mencontek dan / atau memberi contekan dalam ulangan harian dan ujian 15 28 Memalak / merampas barang milik Murid lain 30 29 Mengancam / mengintimidasi sesama Murid di dalam maupun di luar sekolah 50 30 Melakukan tindakan kekerasan verbal maupun nonverbal yang menyebabkan cedera fisik maupun psikis 100 31 Mengancam / mengintimidasi Kepala Sekolah, Bapak/Ibu Pendidik /Tenaga Kependidikan di dalam maupun di luar sekolah 200 32 Menganiaya , mengeroyok Kepala Sekolah, Bapak/Ibu Pendidik /Tenaga Kependidikan di dalam maupun di luar sekolah 301 33 T erbukti membawa / menghisap rokok /vape di lingkungan sekolah 30 34 Membawa , menerima , menyimpan / tersimpan / membuat , menyebarluaskan , dan atau memperjualbelikan segala jenis konten pornografi / asusila dalam bentuk apapun 50 35 Membuat, melakukan praktek hubungan badan dan atau ikut serta menyebarluaskan dalam bentuk apapun 301 36 T erbukti membawa atau memperjualbelikan alat kontrasepsi . 150 37 Membawa , mengkonsumsi atau memperjualbelikan narkoba , miras / minuman beralkohol di dalam lingkungan sekolah maupun di luar lingkungan sekolah 301 38 Bermain judi dalam segala bentuknya di lingkungan dan di luar sekolah 250 39 Membawa senjata tajam / senjata api 100 40 Menggunakan senjata tajam untuk mengancam atau melukai orang lain. 301 41 Menjadi provokator perkelahian sesama Murid 50 42 Menjadi provokator perkelahian Murid dengan sekolah lain. 150 43 Berkelahi , menyerang / mengeroyok sesama Murid 75 44 Berkelahi antar Murid dengan melibatkan sekolah lain 150 45 Melakukan perbuatan yang melanggar norma agama, seperti d uduk bersentuhan dengan lawan jenis ( bukan muhrim ) di lingkungan sekolah 30 46 Melakukan perbuatan yang melanggar norma agama, seperti p egangan tangan dengan lawan jenis 50 47 Melakukan perbuatan yang melanggar norma agama, seperti be rpelukan dengan lawan jenis , c ium / mencium / ciuman pipi/ bibir , T idur - tiduran dipangkuan dengan lawan jenis . 150 48 Melakukan hubungan badan , Hamil atau terbukti menghamili 301 49 Melakukan tindakan perundungan dan/ atau pelecehan seksual baik verbal maupun nonverbal. 50 50 Menampilkan atau mempublikasikan di media apapun dalam bentuk kata/ kalimat / foto / gambar /video yang mencemarkan nama baik sekolah 200 51 T erbukti melakukan tindakan kriminal / pencurian 200 52 Membawa / menggunakan / mengendarai kendaraan bermotor tidak sesuai ketentuan yang berlaku . 50 53 Menggunakan pakaian bebas di sekolah 5 54 Menggunakan sandal selama di sekolah saat jam KBM berlangsung 10 55 Membawa peralatan make up yang tidak sesuai ketentuan 10 56 Membawa barang-barang yang tidak sesuai ketentuan seperti kartu remi , gapleh , ataupun barang-barang yang tidak ada kaitannya dengan KBM. 10 57 Rambut murid laki-laki tidak sesuai ketentuan 10 58 Murid masih berada di lingkungan sekolah lebih dari pukul 17 . 30 WIB 15 59 Tidak melaksanakan piket kelas 5 60 Terbukti membuang sampah sembarangan 10`;
     function getInitialKategori() {
-        let aprePart = rawPDFText.substring(rawPDFText.indexOf('SKOR APRESIASI 1'), rawPDFText.indexOf('SKOR PELANGGARAN'));
-        let pelanggaranPart = rawPDFText.substring(rawPDFText.indexOf('SKOR PELANGGARAN 1'));
-        let cats = [];
-        let idCounter = 1;
-        function parsePart(text, type) {
-            let regex = /(\d+)\s+(.*?)\s+(\d+)(?=\s+\d+\s+|$)/g;
-            let match;
-            while ((match = regex.exec(text)) !== null) {
-                let uraian = match[2].trim().replace(/\s+/g, ' ');
-                let skor = parseInt(match[3]);
-                let poinStr = type === 'Prestasi' ? skor.toString() : '-' + skor.toString();
-                let group = type === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban';
-                cats.push({
-                    ID: (type === 'Prestasi' ? 'A' : 'V') + idCounter++,
-                    Group: group, Jenis: type, NamaKategori: uraian.length > 50 ? uraian.substring(0, 50) + '...' : uraian,
-                    Poin: poinStr, Kriteria: 'Umum', Desc: uraian
-                });
-            }
+      let aprePart = rawPDFText.substring(rawPDFText.indexOf('SKOR APRESIASI 1'), rawPDFText.indexOf('SKOR PELANGGARAN'));
+      let pelanggaranPart = rawPDFText.substring(rawPDFText.indexOf('SKOR PELANGGARAN 1'));
+      let cats = [];
+      let idCounter = 1;
+      function parsePart(text, type) {
+        let regex = /(\d+)\s+(.*?)\s+(\d+)(?=\s+\d+\s+|$)/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          let uraian = match[2].trim().replace(/\s+/g, ' ');
+          let skor = parseInt(match[3]);
+          let poinStr = type === 'Prestasi' ? skor.toString() : '-' + skor.toString();
+          let group = type === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban';
+          cats.push({
+            ID: (type === 'Prestasi' ? 'A' : 'V') + idCounter++,
+            Group: group, Jenis: type, NamaKategori: uraian.length > 50 ? uraian.substring(0, 50) + '...' : uraian,
+            Poin: poinStr, Kriteria: 'Umum', Desc: uraian
+          });
         }
-        parsePart(aprePart, 'Prestasi');
-        idCounter = 1;
-        parsePart(pelanggaranPart, 'Pelanggaran');
-        return cats;
+      }
+      parsePart(aprePart, 'Prestasi');
+      idCounter = 1;
+      parsePart(pelanggaranPart, 'Pelanggaran');
+      return cats;
     }
 
     function PengaturanPoin({ masterData, setMasterData }) {
@@ -245,148 +260,148 @@
       useEffect(() => setKategoriList(masterData.kategori || []), [masterData.kategori]);
 
       const handleAdd = () => {
-         if(!newKat.NamaKategori || !newKat.Poin) return alert('Isi nama dan poin!');
-         const isApresiasi = newKat.Jenis === 'Prestasi';
-         const newItem = {
-            ID: (isApresiasi ? 'A' : 'V') + Date.now(),
-            Group: newKat.Group, Jenis: newKat.Jenis,
-            NamaKategori: newKat.NamaKategori,
-            Poin: isApresiasi ? Math.abs(newKat.Poin).toString() : '-' + Math.abs(newKat.Poin).toString(),
-            Kriteria: 'Umum', Desc: newKat.NamaKategori
-         };
-         
-         const sortedList = [...kategoriList, newItem].sort((a, b) => {
-            if (a.Jenis !== b.Jenis) return a.Jenis === 'Prestasi' ? -1 : 1;
-            return Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin));
-         });
-         
-         setKategoriList(sortedList);
-         setNewKat({ NamaKategori: '', Poin: '', Jenis: 'Pelanggaran', Group: 'Pelanggaran Ketertiban' });
+        if (!newKat.NamaKategori || !newKat.Poin) return alert('Isi nama dan poin!');
+        const isApresiasi = newKat.Jenis === 'Prestasi';
+        const newItem = {
+          ID: (isApresiasi ? 'A' : 'V') + Date.now(),
+          Group: newKat.Group, Jenis: newKat.Jenis,
+          NamaKategori: newKat.NamaKategori,
+          Poin: isApresiasi ? Math.abs(newKat.Poin).toString() : '-' + Math.abs(newKat.Poin).toString(),
+          Kriteria: 'Umum', Desc: newKat.NamaKategori
+        };
+
+        const sortedList = [...kategoriList, newItem].sort((a, b) => {
+          if (a.Jenis !== b.Jenis) return a.Jenis === 'Prestasi' ? -1 : 1;
+          return Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin));
+        });
+
+        setKategoriList(sortedList);
+        setNewKat({ NamaKategori: '', Poin: '', Jenis: 'Pelanggaran', Group: 'Pelanggaran Ketertiban' });
       };
 
       const handleDelete = (id) => {
-         if(confirm('Yakin hapus kategori ini?')) {
-            setKategoriList(kategoriList.filter(k => k.ID !== id));
-         }
+        if (confirm('Yakin hapus kategori ini?')) {
+          setKategoriList(kategoriList.filter(k => k.ID !== id));
+        }
       };
 
       const handleSave = async () => {
-         if(!password) return alert('Masukkan password!');
-         setSaving(true);
-         try {
-           const res = await apiCall('SAVE_KATEGORI', { password, data: kategoriList });
-           if(res.success) {
-              alert('Berhasil disimpan!');
-              setShowModal(false);
-              setPassword('');
-              setMasterData({...masterData, kategori: kategoriList});
-           } else {
-              alert(res.message);
-           }
-         } catch(e) {
-           alert('Error menyimpan data');
-         }
-         setSaving(false);
+        if (!password) return alert('Masukkan password!');
+        setSaving(true);
+        try {
+          const res = await apiCall('SAVE_KATEGORI', { password, data: kategoriList });
+          if (res.success) {
+            alert('Berhasil disimpan!');
+            setShowModal(false);
+            setPassword('');
+            setMasterData({ ...masterData, kategori: kategoriList });
+          } else {
+            alert(res.message);
+          }
+        } catch (e) {
+          alert('Error menyimpan data');
+        }
+        setSaving(false);
       };
 
       return (
         <div className="space-y-6 animate-[fade-in_0.3s_ease-out] pb-20">
           <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-slate-200 relative overflow-hidden">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50 pointer-events-none"></div>
-             <h2 className="text-2xl font-black text-slate-800 mb-2 relative z-10">Pengaturan Poin & Kategori</h2>
-             <p className="text-slate-500 mb-6 relative z-10">Kelola daftar apresiasi dan pelanggaran sesuai buku saku.</p>
-             
-             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end relative z-10">
-                <div className="flex-1 min-w-[200px]">
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Nama Kategori</label>
-                   <input type="text" value={newKat.NamaKategori} onChange={e=>setNewKat({...newKat, NamaKategori: e.target.value})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="Cth: Telat masuk kelas" />
-                </div>
-                <div className="w-24">
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Poin</label>
-                   <input type="number" value={newKat.Poin} onChange={e=>setNewKat({...newKat, Poin: e.target.value})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="10" />
-                </div>
-                <div className="w-40">
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Jenis</label>
-                   <select value={newKat.Jenis} onChange={e=>setNewKat({...newKat, Jenis: e.target.value, Group: e.target.value === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban'})} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500">
-                      <option value="Pelanggaran">Pelanggaran</option>
-                      <option value="Prestasi">Apresiasi</option>
-                   </select>
-                </div>
-                <button onClick={handleAdd} className="bg-slate-800 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-slate-700 transition-colors shadow-md">
-                   <i className="fa-solid fa-plus mr-2"></i> Tambah
-                </button>
-             </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50 pointer-events-none"></div>
+            <h2 className="text-2xl font-black text-slate-800 mb-2 relative z-10">Pengaturan Poin & Kategori</h2>
+            <p className="text-slate-500 mb-6 relative z-10">Kelola daftar apresiasi dan pelanggaran sesuai buku saku.</p>
 
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
-               {/* TABEL APRESIASI */}
-               <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden flex flex-col max-h-[500px]">
-                  <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200 flex justify-between items-center sticky top-0 z-20">
-                     <h3 className="font-black text-emerald-700"><i className="fa-solid fa-star mr-2"></i> Daftar Apresiasi</h3>
-                     <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k=>k.Jenis==='Prestasi').length} item</span>
-                  </div>
-                  <div className="overflow-y-auto flex-1">
-                     <table className="w-full text-left border-collapse">
-                       <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
-                         <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100">
-                          {kategoriList.filter(k=>k.Jenis==='Prestasi').map((k, idx) => (
-                             <tr key={k.ID} className="hover:bg-emerald-50/50">
-                               <td className="px-4 py-2 text-sm text-slate-700"><span className="text-emerald-500 font-bold mr-2">{idx+1}.</span> {k.NamaKategori}</td>
-                               <td className="px-4 py-2 font-black text-center text-emerald-600">{k.Poin}</td>
-                               <td className="px-4 py-2 text-center"><button onClick={()=>handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
-                             </tr>
-                          ))}
-                       </tbody>
-                     </table>
-                  </div>
-               </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end relative z-10">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Nama Kategori</label>
+                <input type="text" value={newKat.NamaKategori} onChange={e => setNewKat({ ...newKat, NamaKategori: e.target.value })} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="Cth: Telat masuk kelas" />
+              </div>
+              <div className="w-24">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Poin</label>
+                <input type="number" value={newKat.Poin} onChange={e => setNewKat({ ...newKat, Poin: e.target.value })} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500" placeholder="10" />
+              </div>
+              <div className="w-40">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Jenis</label>
+                <select value={newKat.Jenis} onChange={e => setNewKat({ ...newKat, Jenis: e.target.value, Group: e.target.value === 'Prestasi' ? 'Apresiasi Karakter' : 'Pelanggaran Ketertiban' })} className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-slate-700 outline-none focus:border-blue-500">
+                  <option value="Pelanggaran">Pelanggaran</option>
+                  <option value="Prestasi">Apresiasi</option>
+                </select>
+              </div>
+              <button onClick={handleAdd} className="bg-slate-800 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-slate-700 transition-colors shadow-md">
+                <i className="fa-solid fa-plus mr-2"></i> Tambah
+              </button>
+            </div>
 
-               {/* TABEL PELANGGARAN */}
-               <div className="bg-white rounded-xl border border-rose-200 overflow-hidden flex flex-col max-h-[500px]">
-                  <div className="bg-rose-50 px-4 py-3 border-b border-rose-200 flex justify-between items-center sticky top-0 z-20">
-                     <h3 className="font-black text-rose-700"><i className="fa-solid fa-triangle-exclamation mr-2"></i> Daftar Pelanggaran</h3>
-                     <span className="bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k=>k.Jenis==='Pelanggaran').length} item</span>
-                  </div>
-                  <div className="overflow-y-auto flex-1">
-                     <table className="w-full text-left border-collapse">
-                       <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
-                         <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100">
-                          {kategoriList.filter(k=>k.Jenis==='Pelanggaran').map((k, idx) => (
-                             <tr key={k.ID} className="hover:bg-rose-50/50">
-                               <td className="px-4 py-2 text-sm text-slate-700"><span className="text-rose-500 font-bold mr-2">{idx+1}.</span> {k.NamaKategori}</td>
-                               <td className="px-4 py-2 font-black text-center text-rose-600">{k.Poin}</td>
-                               <td className="px-4 py-2 text-center"><button onClick={()=>handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
-                             </tr>
-                          ))}
-                       </tbody>
-                     </table>
-                  </div>
-               </div>
-             </div>
-             
-             <div className="mt-8 flex justify-end relative z-10">
-                <button onClick={()=>setShowModal(true)} className="bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-600/30 transition-all transform hover:-translate-y-1">
-                   <i className="fa-solid fa-save mr-2"></i> Simpan Perubahan
-                </button>
-             </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+              {/* TABEL APRESIASI */}
+              <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden flex flex-col max-h-[500px]">
+                <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200 flex justify-between items-center sticky top-0 z-20">
+                  <h3 className="font-black text-emerald-700"><i className="fa-solid fa-star mr-2"></i> Daftar Apresiasi</h3>
+                  <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k => k.Jenis === 'Prestasi').length} item</span>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
+                      <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {kategoriList.filter(k => k.Jenis === 'Prestasi').map((k, idx) => (
+                        <tr key={k.ID} className="hover:bg-emerald-50/50">
+                          <td className="px-4 py-2 text-sm text-slate-700"><span className="text-emerald-500 font-bold mr-2">{idx + 1}.</span> {k.NamaKategori}</td>
+                          <td className="px-4 py-2 font-black text-center text-emerald-600">{k.Poin}</td>
+                          <td className="px-4 py-2 text-center"><button onClick={() => handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* TABEL PELANGGARAN */}
+              <div className="bg-white rounded-xl border border-rose-200 overflow-hidden flex flex-col max-h-[500px]">
+                <div className="bg-rose-50 px-4 py-3 border-b border-rose-200 flex justify-between items-center sticky top-0 z-20">
+                  <h3 className="font-black text-rose-700"><i className="fa-solid fa-triangle-exclamation mr-2"></i> Daftar Pelanggaran</h3>
+                  <span className="bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full text-xs font-bold">{kategoriList.filter(k => k.Jenis === 'Pelanggaran').length} item</span>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-white z-10 shadow-sm text-xs text-slate-500">
+                      <tr><th className="px-4 py-2">Uraian</th><th className="px-4 py-2 w-16 text-center">Poin</th><th className="px-4 py-2 w-12 text-center"></th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {kategoriList.filter(k => k.Jenis === 'Pelanggaran').map((k, idx) => (
+                        <tr key={k.ID} className="hover:bg-rose-50/50">
+                          <td className="px-4 py-2 text-sm text-slate-700"><span className="text-rose-500 font-bold mr-2">{idx + 1}.</span> {k.NamaKategori}</td>
+                          <td className="px-4 py-2 font-black text-center text-rose-600">{k.Poin}</td>
+                          <td className="px-4 py-2 text-center"><button onClick={() => handleDelete(k.ID)} className="text-rose-400 hover:text-rose-600 transition-colors"><i className="fa-solid fa-trash-can"></i></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end relative z-10">
+              <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-600/30 transition-all transform hover:-translate-y-1">
+                <i className="fa-solid fa-save mr-2"></i> Simpan Perubahan
+              </button>
+            </div>
           </div>
 
           {showModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
               <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-8 relative">
-                 <button onClick={()=>setShowModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark fa-xl"></i></button>
-                 <div className="text-center mb-6">
-                    <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><i className="fa-solid fa-lock text-3xl"></i></div>
-                    <h3 className="text-2xl font-black text-slate-800">Otorisasi Admin</h3>
-                    <p className="text-slate-500 text-sm mt-2">Masukkan password untuk menyimpan ke database.</p>
-                 </div>
-                 <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-center text-xl tracking-widest font-bold mb-6 transition-all" />
-                 <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all disabled:opacity-70 text-lg">
-                    {saving ? 'Menyimpan...' : 'Konfirmasi & Simpan'}
-                 </button>
+                <button onClick={() => setShowModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark fa-xl"></i></button>
+                <div className="text-center mb-6">
+                  <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><i className="fa-solid fa-lock text-3xl"></i></div>
+                  <h3 className="text-2xl font-black text-slate-800">Otorisasi Admin</h3>
+                  <p className="text-slate-500 text-sm mt-2">Masukkan password untuk menyimpan ke database.</p>
+                </div>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-center text-xl tracking-widest font-bold mb-6 transition-all" />
+                <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all disabled:opacity-70 text-lg">
+                  {saving ? 'Menyimpan...' : 'Konfirmasi & Simpan'}
+                </button>
               </div>
             </div>
           )}
@@ -397,7 +412,7 @@
     function StudentSelector({ students, onSelect }) {
       const [filterKelas, setFilterKelas] = useState('');
       const [searchNama, setSearchNama] = useState('');
-      
+
       const uniqueClasses = useMemo(() => {
         const setCls = new Set();
         students.forEach(s => { if (s.Kelas) setCls.add(s.Kelas); });
@@ -405,83 +420,83 @@
       }, [students]);
 
       const filtered = useMemo(() => {
-         let f = students;
-         if (filterKelas) f = f.filter(s => s.Kelas === filterKelas);
-         if (searchNama) {
-            const lower = searchNama.toLowerCase();
-            f = f.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
-         }
-         return f.slice(0, 100); 
+        let f = students;
+        if (filterKelas) f = f.filter(s => s.Kelas === filterKelas);
+        if (searchNama) {
+          const lower = searchNama.toLowerCase();
+          f = f.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
+        }
+        return f.slice(0, 100);
       }, [students, filterKelas, searchNama]);
 
       return (
         <div>
-           <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang akan dicatat. Tidak perlu mengetik!</p>
-           
-           <div className="flex flex-col sm:flex-row gap-3 mb-5">
-             <div className="flex-1 relative">
-               <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-               <select 
-                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-blue-500 focus:outline-none appearance-none cursor-pointer"
-                 value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
-               >
-                 <option value="">Semua Kelas (Filter by Kelas)</option>
-                 {uniqueClasses.map((c, i, arr) => {
-                    const prefix = c.split(' ')[0];
-                    const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
-                    const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
-                    return (
-                       <React.Fragment key={c}>
-                          {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
-                          <option value={c} className={bg}>Kelas {c}</option>
-                       </React.Fragment>
-                    );
-                 })}
-               </select>
-             </div>
-             <div className="flex-1 relative">
-               <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-               <input 
-                 type="text" placeholder="Atau cari nama (Opsional)..." 
-                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-blue-500 focus:outline-none"
-                 value={searchNama} onChange={e => setSearchNama(e.target.value)}
-               />
-             </div>
-           </div>
+          <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang akan dicatat. Tidak perlu mengetik!</p>
 
-           <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
-              {filtered.length === 0 ? (
-                 <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
-              ) : (
-                 <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
-                   {filtered.map(s => (
-                       <button 
-                         key={s.NISN} onClick={() => onSelect(s)}
-                         className="px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm hover:bg-blue-50 text-left"
-                       >
-                         <span>{s.Nama}</span>
-                         <span className="text-[10px] font-mono mt-0.5 text-slate-400">NISN: {s.NISN} &bull; {s.Kelas}</span>
-                       </button>
-                   ))}
-                 </div>
-              )}
-           </div>
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <div className="flex-1 relative">
+              <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <select
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-blue-500 focus:outline-none appearance-none cursor-pointer"
+                value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
+              >
+                <option value="">Semua Kelas (Filter by Kelas)</option>
+                {uniqueClasses.map((c, i, arr) => {
+                  const prefix = c.split(' ')[0];
+                  const prevPrefix = i > 0 ? arr[i - 1].split(' ')[0] : null;
+                  const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
+                  return (
+                    <React.Fragment key={c}>
+                      {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                      <option value={c} className={bg}>Kelas {c}</option>
+                    </React.Fragment>
+                  );
+                })}
+              </select>
+            </div>
+            <div className="flex-1 relative">
+              <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input
+                type="text" placeholder="Atau cari nama (Opsional)..."
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-blue-500 focus:outline-none"
+                value={searchNama} onChange={e => setSearchNama(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
+            {filtered.length === 0 ? (
+              <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
+            ) : (
+              <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
+                {filtered.map(s => (
+                  <button
+                    key={s.NISN} onClick={() => onSelect(s)}
+                    className="px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm hover:bg-blue-50 text-left"
+                  >
+                    <span>{s.Nama}</span>
+                    <span className="text-[10px] font-mono mt-0.5 text-slate-400">NISN: {s.NISN} &bull; {s.Kelas}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       );
     }
 
 
-// --- DASHBOARD ADMIN ---
+    // --- DASHBOARD ADMIN ---
     function DashboardAdmin({ user }) {
       const [masterData, setMasterData] = useState({ siswa: [], kategori: [] });
       const [loading, setLoading] = useState(true);
       const [activeMenu, setActiveMenu] = useState(user.role === 'GTK' ? 'masal' : 'overview'); // 'overview' | 'masal' | 'individu' | 'rekap' | 'pembinaan'
       const [submitting, setSubmitting] = useState(false);
-      
+
       const [selectedSiswa, setSelectedSiswa] = useState(null);
       const [cartIndividu, setCartIndividu] = useState([]);
       const [searchKategoriIndividu, setSearchKategoriIndividu] = useState('');
-      const [individuJenisTab, setIndividuJenisTab] = useState('Pelanggaran');      
+      const [individuJenisTab, setIndividuJenisTab] = useState('Pelanggaran');
       const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
       const [pinnedNames, setPinnedNames] = useState(() => JSON.parse(localStorage.getItem('pinnedKategoriNames')) || []);
       const [showPinModal, setShowPinModal] = useState(false);
@@ -514,13 +529,13 @@
       };
 
       const handleRefresh = (e) => {
-         const icon = e.currentTarget.querySelector('i');
-         if(icon) icon.classList.add('animate-[spin_0.5s_linear_infinite]');
-         fetchRekap();
-         fetchCriticalStudents();
-         setTimeout(() => {
-            if(icon) icon.classList.remove('animate-[spin_0.5s_linear_infinite]');
-         }, 500);
+        const icon = e.currentTarget.querySelector('i');
+        if (icon) icon.classList.add('animate-[spin_0.5s_linear_infinite]');
+        fetchRekap();
+        fetchCriticalStudents();
+        setTimeout(() => {
+          if (icon) icon.classList.remove('animate-[spin_0.5s_linear_infinite]');
+        }, 500);
       };
 
       useEffect(() => {
@@ -528,7 +543,7 @@
           if (res.success) {
             setMasterData({ siswa: res.siswa || [], kategori: res.kategori || [] });
             const terlambat = (res.kategori || []).find(k => k.NamaKategori?.toLowerCase().includes('terlambat'));
-            if(terlambat) setSelectedKategoriMasal(terlambat);
+            if (terlambat) setSelectedKategoriMasal(terlambat);
           }
           setLoading(false);
         }).catch(() => setLoading(false));
@@ -538,18 +553,18 @@
 
       // Saat pindah ke tab rekap, fetch ulang
       useEffect(() => {
-        if(activeMenu === 'rekap') fetchRekap();
+        if (activeMenu === 'rekap') fetchRekap();
       }, [activeMenu]);
 
       const groupedKategori = useMemo(() => {
         const groups = { 'Apresiasi Karakter': [], 'Pelanggaran Ketertiban': [] };
-        const sorted = [...masterData.kategori].sort((a,b) => Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin)));
+        const sorted = [...masterData.kategori].sort((a, b) => Math.abs(parseInt(a.Poin)) - Math.abs(parseInt(b.Poin)));
         sorted.forEach(k => {
           const g = k.Group || 'Lainnya';
-          if(!groups[g]) groups[g] = [];
+          if (!groups[g]) groups[g] = [];
           groups[g].push(k);
         });
-        Object.keys(groups).forEach(key => { if(groups[key].length === 0) delete groups[key]; });
+        Object.keys(groups).forEach(key => { if (groups[key].length === 0) delete groups[key]; });
         return groups;
       }, [masterData.kategori]);
 
@@ -557,43 +572,43 @@
 
       const uniqueClasses = useMemo(() => {
         const clsSet = new Set();
-        masterData.siswa.forEach(s => { if(s.Kelas) clsSet.add(s.Kelas) });
-        rekapData.forEach(r => { if(r.kelas) clsSet.add(r.kelas) });
+        masterData.siswa.forEach(s => { if (s.Kelas) clsSet.add(s.Kelas) });
+        rekapData.forEach(r => { if (r.kelas) clsSet.add(r.kelas) });
         return Array.from(clsSet).filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
       }, [masterData.siswa, rekapData]);
 
       const filteredRekapData = useMemo(() => {
-         let data = [...rekapData];
-         if (filterRekapNama) data = data.filter(d => d.nama.toLowerCase().includes(filterRekapNama.toLowerCase()));
-         if (filterRekapKelas) data = data.filter(d => d.kelas === filterRekapKelas);
-         if (filterRekapKategori !== 'Semua') data = data.filter(d => d.jenis === filterRekapKategori);
-         if (filterRekapDateStart) {
-            const start = new Date(filterRekapDateStart).getTime();
-            data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() >= start);
-         }
-         if (filterRekapDateEnd) {
-            const end = new Date(filterRekapDateEnd).getTime();
-            data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() <= end);
-         }
-         return data;
+        let data = [...rekapData];
+        if (filterRekapNama) data = data.filter(d => d.nama.toLowerCase().includes(filterRekapNama.toLowerCase()));
+        if (filterRekapKelas) data = data.filter(d => d.kelas === filterRekapKelas);
+        if (filterRekapKategori !== 'Semua') data = data.filter(d => d.jenis === filterRekapKategori);
+        if (filterRekapDateStart) {
+          const start = new Date(filterRekapDateStart).getTime();
+          data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() >= start);
+        }
+        if (filterRekapDateEnd) {
+          const end = new Date(filterRekapDateEnd).getTime();
+          data = data.filter(d => d.tanggal && new Date(d.tanggal).getTime() <= end);
+        }
+        return data;
       }, [rekapData, filterRekapNama, filterRekapKelas, filterRekapKategori, filterRekapDateStart, filterRekapDateEnd]);
-      
-      const { totalPrestasi, totalPelanggaran, criticalAlert } = useMemo(() => {
-         let tp = 0;
-         let tpl = 0;
-         let cAlert = false;
-         
-         const dataToSum = focusedStudentNama 
-             ? rekapData.filter(d => d.nama === focusedStudentNama)
-             : filteredRekapData;
 
-         dataToSum.forEach(d => {
-           const p = Math.abs(parseInt(d.poin) || 0);
-           if (d.jenis === 'Prestasi') tp += p;
-           else if (d.jenis === 'Pelanggaran') tpl += p;
-         });
-         if ((filterRekapNama || focusedStudentNama) && Math.max(0, tpl - tp) >= 300) cAlert = true;
-         return { totalPrestasi: tp, totalPelanggaran: tpl, criticalAlert: cAlert };
+      const { totalPrestasi, totalPelanggaran, criticalAlert } = useMemo(() => {
+        let tp = 0;
+        let tpl = 0;
+        let cAlert = false;
+
+        const dataToSum = focusedStudentNama
+          ? rekapData.filter(d => d.nama === focusedStudentNama)
+          : filteredRekapData;
+
+        dataToSum.forEach(d => {
+          const p = Math.abs(parseInt(d.poin) || 0);
+          if (d.jenis === 'Prestasi') tp += p;
+          else if (d.jenis === 'Pelanggaran') tpl += p;
+        });
+        if ((filterRekapNama || focusedStudentNama) && Math.max(0, tpl - tp) >= 300) cAlert = true;
+        return { totalPrestasi: tp, totalPelanggaran: tpl, criticalAlert: cAlert };
       }, [filteredRekapData, filterRekapNama, focusedStudentNama, rekapData]);
 
       const availableStudentsForMasal = useMemo(() => {
@@ -603,30 +618,30 @@
           const lower = searchNama.toLowerCase();
           filtered = filtered.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
         }
-        return filtered.slice(0, 100); 
+        return filtered.slice(0, 100);
       }, [masterData.siswa, filterKelas, searchNama]);
 
       const toggleStudentMasal = (s) => {
         const isSelected = cartMasalSiswa.find(x => x.NISN === s.NISN);
-        if(isSelected) {
+        if (isSelected) {
           setCartMasalSiswa(cartMasalSiswa.filter(x => x.NISN !== s.NISN));
         } else {
-          setCartMasalSiswa([{...s, uniqueId: Date.now()}, ...cartMasalSiswa]);
+          setCartMasalSiswa([{ ...s, uniqueId: Date.now() }, ...cartMasalSiswa]);
         }
       }
 
       const submitMasal = async () => {
-        if(cartMasalSiswa.length === 0 || !selectedKategoriMasal) return;
+        if (cartMasalSiswa.length === 0 || !selectedKategoriMasal) return;
         setSubmitting(true);
         const dateStr = new Date().toISOString().split('T')[0];
         const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         const records = cartMasalSiswa.map(s => ({
-            namaSiswa: s.Nama,
-            kelas: s.Kelas,
-            namaKategori: selectedKategoriMasal.NamaKategori,
-            jenis: selectedKategoriMasal.Jenis,
-            poin: selectedKategoriMasal.Poin,
-            petugas: user
+          namaSiswa: s.Nama,
+          kelas: s.Kelas,
+          namaKategori: selectedKategoriMasal.NamaKategori,
+          jenis: selectedKategoriMasal.Jenis,
+          poin: selectedKategoriMasal.Poin,
+          petugas: user
         }));
         const payload = { date: dateStr, time: timeStr, records };
         const res = await apiCall('SUBMIT_RECORDS', payload);
@@ -647,15 +662,15 @@
         const dateStr = new Date().toISOString().split('T')[0];
         const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         const records = cartIndividu.map(c => ({
-            namaSiswa: selectedSiswa.Nama,
-            kelas: selectedSiswa.Kelas,
-            namaKategori: c.NamaKategori,
-            jenis: c.Jenis,
-            poin: c.Poin,
-            petugas: user
+          namaSiswa: selectedSiswa.Nama,
+          kelas: selectedSiswa.Kelas,
+          namaKategori: c.NamaKategori,
+          jenis: c.Jenis,
+          poin: c.Poin,
+          petugas: user
         }));
         const payload = { date: dateStr, time: timeStr, records };
-        
+
         const res = await apiCall('SUBMIT_RECORDS', payload);
         setSubmitting(false);
         if (res.success) {
@@ -668,47 +683,47 @@
       };
 
       const handleTandaiDibina = async (s) => {
-         if (!window.confirm(`Tandai ${s.Nama} telah dibina? Peringatan untuk murid ini akan disembunyikan sampai ada pelanggaran baru (tanpa mereset poin).`)) return;
-         setSubmitting(true);
-         const dateStr = new Date().toISOString().split('T')[0];
-         const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
-         
-         const payload = {
-            date: dateStr,
-            time: timeStr,
-            records: [{
-               namaSiswa: s.Nama,
-               kelas: s.Kelas,
-               namaKategori: "Telah Dibina",
-               jenis: "Pembinaan",
-               poin: 0,
-               petugas: user.nip || 'Admin'
-            }]
-         };
-         const res = await apiCall('SUBMIT_RECORDS', payload);
-         setSubmitting(false);
-         if (res.success) {
-            alert(`Berhasil menandai ${s.Nama} telah dibina.`);
-            fetchCriticalStudents();
-            fetchRekap();
-         } else {
-            alert(res.message);
-         }
+        if (!window.confirm(`Tandai ${s.Nama} telah dibina? Peringatan untuk murid ini akan disembunyikan sampai ada pelanggaran baru (tanpa mereset poin).`)) return;
+        setSubmitting(true);
+        const dateStr = new Date().toISOString().split('T')[0];
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        const payload = {
+          date: dateStr,
+          time: timeStr,
+          records: [{
+            namaSiswa: s.Nama,
+            kelas: s.Kelas,
+            namaKategori: "Telah Dibina",
+            jenis: "Pembinaan",
+            poin: 0,
+            petugas: user.nip || 'Admin'
+          }]
+        };
+        const res = await apiCall('SUBMIT_RECORDS', payload);
+        setSubmitting(false);
+        if (res.success) {
+          alert(`Berhasil menandai ${s.Nama} telah dibina.`);
+          fetchCriticalStudents();
+          fetchRekap();
+        } else {
+          alert(res.message);
+        }
       };
 
       const visibleCriticalStudents = useMemo(() => {
-          return criticalStudents.filter(s => {
-             const studentRecords = rekapData.filter(r => r.nama === s.Nama);
-             const getJenis = r => (r.jenis || '').trim().toLowerCase();
-             
-             const lastPelanggaranIdx = studentRecords.findIndex(r => getJenis(r) === 'pelanggaran');
-             const lastPembinaanIdx = studentRecords.findIndex(r => getJenis(r) === 'pembinaan');
-             
-             if (lastPembinaanIdx === -1) return true; // Belum pernah dibina -> TAMPILKAN
-             if (lastPelanggaranIdx === -1) return true; // Fallback fail-safe -> TAMPILKAN
-             
-             return lastPelanggaranIdx < lastPembinaanIdx; // Tampilkan jika pelanggaran lebih baru dari pembinaan
-          });
+        return criticalStudents.filter(s => {
+          const studentRecords = rekapData.filter(r => r.nama === s.Nama);
+          const getJenis = r => (r.jenis || '').trim().toLowerCase();
+
+          const lastPelanggaranIdx = studentRecords.findIndex(r => getJenis(r) === 'pelanggaran');
+          const lastPembinaanIdx = studentRecords.findIndex(r => getJenis(r) === 'pembinaan');
+
+          if (lastPembinaanIdx === -1) return true; // Belum pernah dibina -> TAMPILKAN
+          if (lastPelanggaranIdx === -1) return true; // Fallback fail-safe -> TAMPILKAN
+
+          return lastPelanggaranIdx < lastPembinaanIdx; // Tampilkan jika pelanggaran lebih baru dari pembinaan
+        });
       }, [criticalStudents, rekapData]);
 
       if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">NUJU MILARI DATABASE...</div>;
@@ -733,18 +748,18 @@
 
       return (
         <div className="flex flex-col md:flex-row gap-6 animate-[fade-in_0.4s_ease-out] pb-20 md:pb-0">
-          
+
           {/* SIDEBAR DESKTOP */}
           <div className="hidden md:flex flex-col w-64 flex-shrink-0 gap-2">
             <div className="bg-white rounded-[2rem] p-4 shadow-sm border border-slate-200 sticky top-24">
               <div className="text-center mb-6 pt-4">
-                 <div className="w-16 h-16 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto text-2xl font-black mb-3">{user.nama.charAt(0)}</div>
-                 <h3 className="font-bold text-slate-800">{user.nama}</h3>
-                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{user.role}</p>
+                <div className="w-16 h-16 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto text-2xl font-black mb-3">{user.nama.charAt(0)}</div>
+                <h3 className="font-bold text-slate-800">{user.nama}</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{user.role}</p>
               </div>
               <nav className="flex flex-col gap-2">
                 {menuItems.map(m => (
-                  <button 
+                  <button
                     key={m.id} onClick={() => setActiveMenu(m.id)}
                     className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all font-bold text-sm ${activeMenu === m.id ? 'bg-slate-800 text-white shadow-lg shadow-slate-300 translate-x-1' : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
                   >
@@ -759,238 +774,238 @@
 
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 w-full min-w-0">
-          
-          {/* KONTEN BERDASARKAN MODE */}
-          {activeMenu === 'overview' ? (
-              <div className="space-y-6 animate-[fade-in_0.3s_ease-out]">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
-                       <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-blue-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-                       <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-users"></i></div>
-                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Total Murid</p><p className="text-3xl font-black text-slate-800">{masterData.siswa.length}</p></div>
-                     </div>
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
-                       <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-clipboard-check"></i></div>
-                       <div><p className="text-sm font-bold text-slate-500">Aktivitas Tersimpan</p><p className="text-3xl font-black text-slate-800">{rekapData.length}</p></div>
-                    </div>
-                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
-                       <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-red-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
-                       <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
-                       <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Murid Kritis</p><p className="text-3xl font-black text-red-600">{criticalStudents.length}</p></div>
-                     </div>
-                 </div>
 
-                 {/* Welcome Banner */}
-                 <div className="bg-blue-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-blue-600/20">
-                    <div className="relative z-10 md:w-2/3">
-                      <h2 className="text-2xl font-black mb-2">Selamat Datang di GDS Dashboard!</h2>
-                      <p className="text-blue-100 text-sm leading-relaxed mb-6">Pilih menu di sebelah kiri (atau di bawah jika di HP) untuk mulai merekam pelanggaran/prestasi, melihat rekap harian, atau menindaklanjuti murid yang memerlukan pembinaan karakter.</p>
-                      <button onClick={() => setActiveMenu('masal')} className="bg-white text-blue-700 px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-50 transition-colors flex items-center gap-2">
-                        <i className="fa-solid fa-bolt"></i> Mulai Piket Masal
-                      </button>
+            {/* KONTEN BERDASARKAN MODE */}
+            {activeMenu === 'overview' ? (
+              <div className="space-y-6 animate-[fade-in_0.3s_ease-out]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                    <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-blue-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-users"></i></div>
+                    <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Total Murid</p><p className="text-3xl font-black text-slate-800">{masterData.siswa.length}</p></div>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-clipboard-check"></i></div>
+                    <div><p className="text-sm font-bold text-slate-500">Aktivitas Tersimpan</p><p className="text-3xl font-black text-slate-800">{rekapData.length}</p></div>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                    <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-red-50 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-2xl z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
+                    <div className="relative z-10"><p className="text-sm font-bold text-slate-500">Murid Kritis</p><p className="text-3xl font-black text-red-600">{criticalStudents.length}</p></div>
+                  </div>
+                </div>
+
+                {/* Welcome Banner */}
+                <div className="bg-blue-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-blue-600/20">
+                  <div className="relative z-10 md:w-2/3">
+                    <h2 className="text-2xl font-black mb-2">Selamat Datang di GDS Dashboard!</h2>
+                    <p className="text-blue-100 text-sm leading-relaxed mb-6">Pilih menu di sebelah kiri (atau di bawah jika di HP) untuk mulai merekam pelanggaran/prestasi, melihat rekap harian, atau menindaklanjuti murid yang memerlukan pembinaan karakter.</p>
+                    <button onClick={() => setActiveMenu('masal')} className="bg-white text-blue-700 px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-50 transition-colors flex items-center gap-2">
+                      <i className="fa-solid fa-bolt"></i> Mulai Piket Masal
+                    </button>
+                  </div>
+                  <i className="fa-solid fa-shield-halved absolute -right-10 -bottom-10 text-[15rem] text-blue-500 opacity-30 transform -rotate-12"></i>
+                </div>
+
+                {/* Mini Alert for Critical */}
+                {visibleCriticalStudents.length > 0 && (
+                  <div onClick={() => setActiveMenu('pembinaan')} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-red-100 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-white text-red-600 w-10 h-10 rounded-full flex items-center justify-center shadow-sm"><i className="fa-solid fa-bell animate-pulse"></i></div>
+                      <div><p className="font-bold text-red-700 text-sm">Peringatan Dini Aktif</p><p className="text-xs text-red-600">{visibleCriticalStudents.length} murid menunggu tindak lanjut.</p></div>
                     </div>
-                    <i className="fa-solid fa-shield-halved absolute -right-10 -bottom-10 text-[15rem] text-blue-500 opacity-30 transform -rotate-12"></i>
-                 </div>
-                 
-                 {/* Mini Alert for Critical */}
-                 {visibleCriticalStudents.length > 0 && (
-                    <div onClick={() => setActiveMenu('pembinaan')} className="bg-red-50 border border-red-200 rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-red-100 transition-colors">
-                      <div className="flex items-center gap-4">
-                         <div className="bg-white text-red-600 w-10 h-10 rounded-full flex items-center justify-center shadow-sm"><i className="fa-solid fa-bell animate-pulse"></i></div>
-                         <div><p className="font-bold text-red-700 text-sm">Peringatan Dini Aktif</p><p className="text-xs text-red-600">{visibleCriticalStudents.length} murid menunggu tindak lanjut.</p></div>
-                      </div>
-                      <i className="fa-solid fa-chevron-right text-red-400"></i>
-                    </div>
-                 )}
+                    <i className="fa-solid fa-chevron-right text-red-400"></i>
+                  </div>
+                )}
               </div>
-          ) : activeMenu === 'panduan' ? (
+            ) : activeMenu === 'panduan' ? (
               <div className="space-y-8 animate-[fade-in_0.3s_ease-out]">
-                 <div className="bg-white rounded-[2rem] p-6 lg:p-10 border border-slate-200 shadow-sm">
-                 <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
+                <div className="bg-white rounded-[2rem] p-6 lg:p-10 border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
                     <div className="bg-purple-100 text-purple-600 p-4 rounded-2xl"><i className="fa-solid fa-book-open text-2xl"></i></div>
                     <div>
                       <h2 className="text-2xl font-black text-slate-800">Panduan Pembentukan Karakter</h2>
                       <p className="text-sm text-slate-500">Ringkasan Buku Saku SMA Negeri 2 Ciamis</p>
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="space-y-6">
+                  <div className="space-y-6">
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                       <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-star text-amber-500 mr-2"></i> 5 Pilar Karakter (SMANDACIS)</h3>
                       <ul className="list-disc pl-5 space-y-2 text-sm text-slate-600">
-                         <li><strong>Cageur:</strong> Sehat jasmani dan rohani.</li>
-                         <li><strong>Bageur:</strong> Berakhlak mulia, peduli sesama dan lingkungan.</li>
-                         <li><strong>Bener:</strong> Berpikir kritis, jujur, disiplin, bertanggung jawab.</li>
-                         <li><strong>Pinter:</strong> Cerdas, komunikatif, berwawasan kebangsaan.</li>
-                         <li><strong>Singer:</strong> Kreatif, inovatif, adaptif.</li>
+                        <li><strong>Cageur:</strong> Sehat jasmani dan rohani.</li>
+                        <li><strong>Bageur:</strong> Berakhlak mulia, peduli sesama dan lingkungan.</li>
+                        <li><strong>Bener:</strong> Berpikir kritis, jujur, disiplin, bertanggung jawab.</li>
+                        <li><strong>Pinter:</strong> Cerdas, komunikatif, berwawasan kebangsaan.</li>
+                        <li><strong>Singer:</strong> Kreatif, inovatif, adaptif.</li>
                       </ul>
                     </div>
 
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                       <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-shirt text-blue-500 mr-2"></i> Aturan Seragam (Bab VI)</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-slate-600">
-                         <div><strong>Senin:</strong> Putih Abu-abu (Lengkap Atribut)</div>
-                         <div><strong>Selasa:</strong> Batik SMA Negeri 2 Ciamis</div>
-                         <div><strong>Rabu:</strong> Pramuka Lengkap</div>
-                         <div><strong>Kamis:</strong> Pangsi (L) / Kebaya (P)</div>
-                         <div><strong>Jumat:</strong> Busana Muslim</div>
-                         <div><strong>Olahraga:</strong> Kaos & Training SMANDACIS</div>
+                        <div><strong>Senin:</strong> Putih Abu-abu (Lengkap Atribut)</div>
+                        <div><strong>Selasa:</strong> Batik SMA Negeri 2 Ciamis</div>
+                        <div><strong>Rabu:</strong> Pramuka Lengkap</div>
+                        <div><strong>Kamis:</strong> Pangsi (L) / Kebaya (P)</div>
+                        <div><strong>Jumat:</strong> Busana Muslim</div>
+                        <div><strong>Olahraga:</strong> Kaos & Training SMANDACIS</div>
                       </div>
                     </div>
 
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
                       <h3 className="font-bold text-lg text-slate-800 mb-3"><i className="fa-solid fa-hands-holding-circle text-emerald-500 mr-2"></i> Tahapan Pembinaan (Bab XII)</h3>
                       <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-600">
-                         <li>Dialog langsung & pengingat dari Guru/Wali Kelas. (0-100 poin pelanggaran)</li>
-                         <li>Penerapan sistem poin & pemantauan perkembangan sikap. (101-200 poin)</li>
-                         <li>Penyusunan Surat Komitmen Refleksi (1, 2, dan 3).</li>
-                         <li>Peninjauan bersama Orang Tua (Kritis &gt; 250 poin pelanggaran / Sisa Poin &le; 50).</li>
+                        <li>Dialog langsung & pengingat dari Guru/Wali Kelas. (0-100 poin pelanggaran)</li>
+                        <li>Penerapan sistem poin & pemantauan perkembangan sikap. (101-200 poin)</li>
+                        <li>Penyusunan Surat Komitmen Refleksi (1, 2, dan 3).</li>
+                        <li>Peninjauan bersama Orang Tua (Kritis &gt; 250 poin pelanggaran / Sisa Poin &le; 50).</li>
                       </ol>
                     </div>
-                 </div>
-              </div>
-              
-              <PengaturanPoin masterData={masterData} setMasterData={setMasterData} />
-            </div>
-          ) : activeMenu === 'pembinaan' ? (
-            
-            /* --- 🛡️ MODE DAFTAR PEMBINAAN --- */
-            <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 h-full flex flex-col">
-                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                      <span className="w-2 h-6 bg-red-500 rounded-full inline-block"></span> 
-                      Murid Membutuhkan Tindak Lanjut Pembinaan
-                    </h3>
-               </div>
-               
-               <p className="text-sm text-slate-500 mb-6">Daftar di bawah ini adalah murid-murid yang skor akumulasi karakternya telah berada pada titik kritis. Segera hubungi Wali Kelas atau Guru BK untuk melakukan panggilan/pembinaan sesuai SOP SMAN 2 Ciamis.</p>
+                  </div>
+                </div>
 
-               <div className="grid gap-4">
-                 {visibleCriticalStudents.length === 0 ? (
+                <PengaturanPoin masterData={masterData} setMasterData={setMasterData} />
+              </div>
+            ) : activeMenu === 'pembinaan' ? (
+
+              /* --- 🛡️ MODE DAFTAR PEMBINAAN --- */
+              <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 h-full flex flex-col">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-red-500 rounded-full inline-block"></span>
+                    Murid Membutuhkan Tindak Lanjut Pembinaan
+                  </h3>
+                </div>
+
+                <p className="text-sm text-slate-500 mb-6">Daftar di bawah ini adalah murid-murid yang skor akumulasi karakternya telah berada pada titik kritis. Segera hubungi Wali Kelas atau Guru BK untuk melakukan panggilan/pembinaan sesuai SOP SMAN 2 Ciamis.</p>
+
+                <div className="grid gap-4">
+                  {visibleCriticalStudents.length === 0 ? (
                     <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                       <i className="fa-solid fa-check-circle text-4xl mb-3 opacity-30 text-green-500"></i>
                       <p className="text-sm font-medium">Luar Biasa! Saat ini tidak ada murid yang berada pada batas kritis pembinaan.</p>
                     </div>
-                 ) : (
+                  ) : (
                     visibleCriticalStudents.map(s => (
                       <div key={s.NISN} className="bg-white border-2 border-red-100 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-red-300 transition-colors shadow-sm">
-                         <div className="flex items-center gap-5">
-                            <div className="bg-red-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-red-200">
-                               <span className="text-[10px] uppercase font-bold text-red-400 mb-0.5">Skor</span>
-                               <span className="text-2xl font-black text-red-600 leading-none">{s.SisaPoin}</span>
-                            </div>
-                            <div>
-                               <h3 className="text-lg font-bold text-slate-800">{s.Nama}</h3>
-                               <p className="text-sm text-slate-500 font-mono mt-1">{s.NISN} &bull; <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-sans font-bold">{s.Kelas}</span></p>
-                            </div>
-                         </div>
-                         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                            <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold border border-orange-200 w-full md:w-auto text-center">
-                              Tindak Lanjut: {s.Status}
-                            </div>
-                            <button onClick={() => handleTandaiDibina(s)} disabled={submitting} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all w-full md:w-auto flex items-center justify-center gap-2 disabled:opacity-50">
-                               <i className="fa-solid fa-check"></i> {submitting ? 'Memproses...' : 'Tandai Telah Dibina'}
-                            </button>
-                         </div>
+                        <div className="flex items-center gap-5">
+                          <div className="bg-red-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-red-200">
+                            <span className="text-[10px] uppercase font-bold text-red-400 mb-0.5">Skor</span>
+                            <span className="text-2xl font-black text-red-600 leading-none">{s.SisaPoin}</span>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-800">{s.Nama}</h3>
+                            <p className="text-sm text-slate-500 font-mono mt-1">{s.NISN} &bull; <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-sans font-bold">{s.Kelas}</span></p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                          <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold border border-orange-200 w-full md:w-auto text-center">
+                            Tindak Lanjut: {s.Status}
+                          </div>
+                          <button onClick={() => handleTandaiDibina(s)} disabled={submitting} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all w-full md:w-auto flex items-center justify-center gap-2 disabled:opacity-50">
+                            <i className="fa-solid fa-check"></i> {submitting ? 'Memproses...' : 'Tandai Telah Dibina'}
+                          </button>
+                        </div>
                       </div>
                     ))
-                 )}
-               </div>
-            </div>
+                  )}
+                </div>
+              </div>
 
-          ) : activeMenu === 'rekap' ? (
-            
-            /* --- 📊 MODE REKAPITULASI (HISTORY & FILTER) --- */
-            <div className="bg-slate-100 min-h-screen rounded-[2rem] overflow-hidden border border-slate-200 animate-[fade-in_0.3s_ease-out]">
+            ) : activeMenu === 'rekap' ? (
+
+              /* --- 📊 MODE REKAPITULASI (HISTORY & FILTER) --- */
+              <div className="bg-slate-100 min-h-screen rounded-[2rem] overflow-hidden border border-slate-200 animate-[fade-in_0.3s_ease-out]">
                 {/* Banner */}
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 sm:p-12 text-white relative">
-                   <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
-                   <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                     <div>
-                       <p className="text-slate-300 tracking-widest text-xs sm:text-sm font-bold mb-1 uppercase">Rekapitulasi</p>
-                       <h2 className="text-2xl sm:text-4xl font-black leading-tight">PEMBENTUKAN KARAKTER<br/>PANCA WALUYA</h2>
-                       <p className="text-slate-400 mt-2 text-xs sm:text-sm">SMAN 2 Ciamis - Sistem Informasi Pemantauan Karakter</p>
-                     </div>
-                     <button onClick={handleRefresh} className="bg-white/10 w-full md:w-auto hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl transition-all shadow-lg backdrop-blur-sm font-bold flex justify-center items-center gap-2">
-                       <i className="fa-solid fa-rotate"></i> Segarkan Data
-                     </button>
-                   </div>
+                  <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+                  <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div>
+                      <p className="text-slate-300 tracking-widest text-xs sm:text-sm font-bold mb-1 uppercase">Rekapitulasi</p>
+                      <h2 className="text-2xl sm:text-4xl font-black leading-tight">PEMBENTUKAN KARAKTER<br />PANCA WALUYA</h2>
+                      <p className="text-slate-400 mt-2 text-xs sm:text-sm">SMAN 2 Ciamis - Sistem Informasi Pemantauan Karakter</p>
+                    </div>
+                    <button onClick={handleRefresh} className="bg-white/10 w-full md:w-auto hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl transition-all shadow-lg backdrop-blur-sm font-bold flex justify-center items-center gap-2">
+                      <i className="fa-solid fa-rotate"></i> Segarkan Data
+                    </button>
+                  </div>
                 </div>
-                
+
                 <div className="p-6 sm:p-8">
                   {/* Filters & Summary */}
                   <div className="flex flex-col lg:flex-row gap-6 mb-8">
-                     {/* Filter Panel */}
-                     <div className="flex-1 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end min-w-0">
-                        <div className="w-full sm:flex-1 min-w-[150px]">
-                           <label className="block text-xs font-bold text-slate-500 mb-1">Nama Murid</label>
-                           <input type="text" value={filterRekapNama} onChange={(e)=>setFilterRekapNama(e.target.value)} placeholder="Semua Murid..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    {/* Filter Panel */}
+                    <div className="flex-1 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end min-w-0">
+                      <div className="w-full sm:flex-1 min-w-[150px]">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Nama Murid</label>
+                        <input type="text" value={filterRekapNama} onChange={(e) => setFilterRekapNama(e.target.value)} placeholder="Semua Murid..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </div>
+                      <div className="w-full sm:w-32 flex gap-4 sm:block">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
+                          <select value={filterRekapKelas} onChange={(e) => setFilterRekapKelas(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Semua</option>
+                            {uniqueClasses.map((c, i, arr) => {
+                              const prefix = c.split(' ')[0];
+                              const prevPrefix = i > 0 ? arr[i - 1].split(' ')[0] : null;
+                              const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
+                              return (
+                                <React.Fragment key={c}>
+                                  {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                                  <option value={c} className={bg}>{c}</option>
+                                </React.Fragment>
+                              );
+                            })}
+                          </select>
                         </div>
-                        <div className="w-full sm:w-32 flex gap-4 sm:block">
-                          <div className="flex-1">
-                             <label className="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
-                             <select value={filterRekapKelas} onChange={(e)=>setFilterRekapKelas(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                               <option value="">Semua</option>
-                               {uniqueClasses.map((c, i, arr) => {
-                                  const prefix = c.split(' ')[0];
-                                  const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
-                                  const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
-                                  return (
-                                     <React.Fragment key={c}>
-                                        {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
-                                        <option value={c} className={bg}>{c}</option>
-                                     </React.Fragment>
-                                  );
-                               })}
-                             </select>
-                          </div>
-                          <div className="flex-1 sm:hidden">
-                             <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
-                             <select value={filterRekapKategori} onChange={(e)=>setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                               <option value="Semua">Semua</option>
-                               <option value="Prestasi">Prestasi</option>
-                               <option value="Pelanggaran">Pelanggaran</option>
-                             </select>
-                          </div>
+                        <div className="flex-1 sm:hidden">
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                          <select value={filterRekapKategori} onChange={(e) => setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="Semua">Semua</option>
+                            <option value="Prestasi">Prestasi</option>
+                            <option value="Pelanggaran">Pelanggaran</option>
+                          </select>
                         </div>
-                        <div className="hidden sm:block w-40">
-                           <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
-                           <select value={filterRekapKategori} onChange={(e)=>setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                             <option value="Semua">Semua</option>
-                             <option value="Prestasi">Prestasi</option>
-                             <option value="Pelanggaran">Pelanggaran</option>
-                           </select>
+                      </div>
+                      <div className="hidden sm:block w-40">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                        <select value={filterRekapKategori} onChange={(e) => setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="Semua">Semua</option>
+                          <option value="Prestasi">Prestasi</option>
+                          <option value="Pelanggaran">Pelanggaran</option>
+                        </select>
+                      </div>
+                      <div className="w-full sm:flex-1 min-w-0 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Dari Tanggal</label>
+                          <input type="date" value={filterRekapDateStart} onChange={(e) => setFilterRekapDateStart(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
-                        <div className="w-full sm:flex-1 min-w-0 grid grid-cols-2 gap-3">
-                           <div>
-                             <label className="block text-xs font-bold text-slate-500 mb-1">Dari Tanggal</label>
-                             <input type="date" value={filterRekapDateStart} onChange={(e)=>setFilterRekapDateStart(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                           </div>
-                           <div>
-                             <label className="block text-xs font-bold text-slate-500 mb-1">Sampai Tanggal</label>
-                             <input type="date" value={filterRekapDateEnd} onChange={(e)=>setFilterRekapDateEnd(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                           </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Sampai Tanggal</label>
+                          <input type="date" value={filterRekapDateEnd} onChange={(e) => setFilterRekapDateEnd(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                         </div>
-                     </div>
-                     
-                     {/* Summary Cards */}
-                     <div className="flex gap-3 w-full lg:w-auto">
-                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center">
-                           <p className="text-emerald-700 font-bold text-xs mb-1">
-                              Prestasi {focusedStudentNama && <span className="block text-[9px] sm:text-[10px] bg-emerald-200/50 rounded px-1 mt-1 truncate max-w-[120px] mx-auto">{focusedStudentNama}</span>}
-                           </p>
-                           <p className="text-2xl sm:text-4xl font-black text-emerald-600">{totalPrestasi}</p>
-                        </div>
-                        <div className={`border p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center transition-all relative ${criticalAlert ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600'}`}>
-                           <p className={`font-bold text-xs mb-1 ${criticalAlert ? 'text-red-100' : 'text-red-700'}`}>
-                              Pelanggaran {focusedStudentNama && <span className={`block text-[9px] sm:text-[10px] rounded px-1 mt-1 truncate max-w-[120px] mx-auto ${criticalAlert ? 'bg-red-500/50' : 'bg-red-200/50'}`}>{focusedStudentNama}</span>}
-                           </p>
-                           <p className="text-2xl sm:text-4xl font-black">{totalPelanggaran}</p>
-                           {criticalAlert && <div className="absolute -top-3 -right-2 bg-yellow-400 text-yellow-900 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white"><i className="fa-solid fa-triangle-exclamation"></i> KRITIS</div>}
-                        </div>
-                     </div>
+                      </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="flex gap-3 w-full lg:w-auto">
+                      <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center">
+                        <p className="text-emerald-700 font-bold text-xs mb-1">
+                          Prestasi {focusedStudentNama && <span className="block text-[9px] sm:text-[10px] bg-emerald-200/50 rounded px-1 mt-1 truncate max-w-[120px] mx-auto">{focusedStudentNama}</span>}
+                        </p>
+                        <p className="text-2xl sm:text-4xl font-black text-emerald-600">{totalPrestasi}</p>
+                      </div>
+                      <div className={`border p-3 sm:p-5 rounded-2xl shadow-sm flex-1 lg:w-40 flex flex-col justify-center items-center text-center transition-all relative ${criticalAlert ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600'}`}>
+                        <p className={`font-bold text-xs mb-1 ${criticalAlert ? 'text-red-100' : 'text-red-700'}`}>
+                          Pelanggaran {focusedStudentNama && <span className={`block text-[9px] sm:text-[10px] rounded px-1 mt-1 truncate max-w-[120px] mx-auto ${criticalAlert ? 'bg-red-500/50' : 'bg-red-200/50'}`}>{focusedStudentNama}</span>}
+                        </p>
+                        <p className="text-2xl sm:text-4xl font-black">{totalPelanggaran}</p>
+                        {criticalAlert && <div className="absolute -top-3 -right-2 bg-yellow-400 text-yellow-900 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white"><i className="fa-solid fa-triangle-exclamation"></i> KRITIS</div>}
+                      </div>
+                    </div>
                   </div>
-                  
+
                   {/* Table */}
                   <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto max-h-[60vh] custom-scrollbar">
@@ -1008,183 +1023,183 @@
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                           {filteredRekapData.length === 0 ? (
-                             <tr><td colSpan="8" className="px-5 py-10 text-center text-slate-400 italic">Tidak ada data yang sesuai dengan filter.</td></tr>
-                           ) : (
-                             filteredRekapData.map((r, i) => (
-                               <tr key={r.id} onClick={() => setFocusedStudentNama(focusedStudentNama === r.nama ? null : r.nama)} className={`transition-colors cursor-pointer ${focusedStudentNama === r.nama ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}>
-                                  <td className="px-5 py-3 text-center text-slate-400 font-bold">{i + 1}.</td>
-                                  <td className="px-5 py-3 text-slate-600 font-mono text-xs">{r.tanggal ? new Date(r.tanggal).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'} <span className="text-slate-400 ml-1">{r.waktu}</span></td>
-                                  <td className="px-5 py-3 font-bold text-slate-800">{r.nama}</td>
-                                  <td className="px-5 py-3 text-slate-600">{r.kelas}</td>
-                                  <td className="px-5 py-3">
-                                     <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${r.jenis === 'Prestasi' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                       {r.jenis}
-                                     </span>
-                                  </td>
-                                  <td className="px-5 py-3 text-slate-600 max-w-[300px] truncate" title={r.kategori}>{r.kategori}</td>
-                                  <td className="px-5 py-3 text-center">
-                                    <span className={`font-black text-sm ${r.jenis === 'Pelanggaran' ? 'text-red-600' : 'text-emerald-600'}`}>
-                                      {r.jenis === 'Pelanggaran' ? `-${Math.abs(parseInt(r.poin) || 0)}` : `+${Math.abs(parseInt(r.poin) || 0)}`}
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-3 text-slate-500 text-xs font-medium">{r.petugas}</td>
-                               </tr>
-                             ))
-                           )}
+                          {filteredRekapData.length === 0 ? (
+                            <tr><td colSpan="8" className="px-5 py-10 text-center text-slate-400 italic">Tidak ada data yang sesuai dengan filter.</td></tr>
+                          ) : (
+                            filteredRekapData.map((r, i) => (
+                              <tr key={r.id} onClick={() => setFocusedStudentNama(focusedStudentNama === r.nama ? null : r.nama)} className={`transition-colors cursor-pointer ${focusedStudentNama === r.nama ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}>
+                                <td className="px-5 py-3 text-center text-slate-400 font-bold">{i + 1}.</td>
+                                <td className="px-5 py-3 text-slate-600 font-mono text-xs">{r.tanggal ? new Date(r.tanggal).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'} <span className="text-slate-400 ml-1">{r.waktu}</span></td>
+                                <td className="px-5 py-3 font-bold text-slate-800">{r.nama}</td>
+                                <td className="px-5 py-3 text-slate-600">{r.kelas}</td>
+                                <td className="px-5 py-3">
+                                  <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${r.jenis === 'Prestasi' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                    {r.jenis}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-3 text-slate-600 max-w-[300px] truncate" title={r.kategori}>{r.kategori}</td>
+                                <td className="px-5 py-3 text-center">
+                                  <span className={`font-black text-sm ${r.jenis === 'Pelanggaran' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {r.jenis === 'Pelanggaran' ? `-${Math.abs(parseInt(r.poin) || 0)}` : `+${Math.abs(parseInt(r.poin) || 0)}`}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-3 text-slate-500 text-xs font-medium">{r.petugas}</td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
                   </div>
                 </div>
-            </div>
+              </div>
 
-          ) : activeMenu === 'masal' ? (
-            
-            /* --- ⚡ MODE PIKET PAGI (MASAL) --- */
-            <div className="grid lg:grid-cols-12 gap-8">
-               <div className="lg:col-span-7 space-y-6">
-                    {/* Langkah 1: Pilih Tindakan */}
-                 <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
-                   <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 pb-3 mb-4 gap-3">
-                     <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                       <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs shrink-0">1</span> 
-                       Pilih Tindakan / Pelanggaran
-                     </h2>
-                     <button onClick={() => setShowPinModal(true)} className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors"><i className="fa-solid fa-sliders"></i> Atur Pintasan</button>
-                   </div>
-                   
-                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                     {(pinnedNames.length > 0 ? pinnedNames.map(name => masterData.kategori.find(k=>k.NamaKategori === name && k.Jenis==='Pelanggaran')).filter(Boolean) : masterData.kategori.filter(k=>k.Jenis==='Pelanggaran').slice(0,8)).map(k => (
-                       <button 
-                         key={k.ID} onClick={() => setSelectedKategoriMasal(k)}
-                         className={`p-4 rounded-xl text-left border-2 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
-                       >
-                         <div className={`font-bold text-sm sm:text-base ${selectedKategoriMasal?.ID === k.ID ? 'text-amber-700' : 'text-slate-700'} leading-snug`}>{k.NamaKategori}</div>
-                         <div className="text-xs text-slate-500 mt-1">{k.Poin} Poin</div>
-                       </button>
-                     ))}
-                   </div>
-                   
-                   <div className="mt-6 border-t border-slate-100 pt-6">
+            ) : activeMenu === 'masal' ? (
+
+              /* --- ⚡ MODE PIKET PAGI (MASAL) --- */
+              <div className="grid lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Langkah 1: Pilih Tindakan */}
+                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-slate-100 pb-3 mb-4 gap-3">
+                      <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs shrink-0">1</span>
+                        Pilih Tindakan / Pelanggaran
+                      </h2>
+                      <button onClick={() => setShowPinModal(true)} className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors"><i className="fa-solid fa-sliders"></i> Atur Pintasan</button>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                      {(pinnedNames.length > 0 ? pinnedNames.map(name => masterData.kategori.find(k => k.NamaKategori === name && k.Jenis === 'Pelanggaran')).filter(Boolean) : masterData.kategori.filter(k => k.Jenis === 'Pelanggaran').slice(0, 8)).map(k => (
+                        <button
+                          key={k.ID} onClick={() => setSelectedKategoriMasal(k)}
+                          className={`p-4 rounded-xl text-left border-2 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50'}`}
+                        >
+                          <div className={`font-bold text-sm sm:text-base ${selectedKategoriMasal?.ID === k.ID ? 'text-amber-700' : 'text-slate-700'} leading-snug`}>{k.NamaKategori}</div>
+                          <div className="text-xs text-slate-500 mt-1">{k.Poin} Poin</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 border-t border-slate-100 pt-6">
                       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
                         <h3 className="text-sm font-bold text-slate-500">Atau Cari Tindakan Lainnya:</h3>
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                           <button onClick={() => setMasalJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
-                           <button onClick={() => setMasalJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
+                          <button onClick={() => setMasalJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
+                          <button onClick={() => setMasalJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${masalJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
                         </div>
                       </div>
                       <div className="relative mb-4">
                         <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Ketik min. 2 huruf..."
                           value={searchKategoriMasal}
                           onChange={(e) => setSearchKategoriMasal(e.target.value)}
                           className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm font-medium"
                         />
                       </div>
-                      
-                      <div className="h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
-                          <div className="space-y-2">
-                             {masterData.kategori
-                                .filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
-                                .sort((a,b) => parseInt(a.Poin) - parseInt(b.Poin))
-                                .map(k => (
-                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? (masalJenisTab === 'Prestasi' ? 'border-emerald-500 bg-emerald-100 shadow-md ring-2 ring-emerald-500 ring-offset-1' : 'border-amber-500 bg-amber-100 shadow-md ring-2 ring-amber-500 ring-offset-1') : (masalJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-300' : 'border-red-100 bg-red-50/30 hover:border-red-300')}`}>
-                                  <div className="flex justify-between items-start gap-2">
-                                    <h5 className="font-bold text-slate-700 text-sm leading-tight">{k.NamaKategori}</h5>
-                                    <span className={`font-black ${masalJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-200/50' : 'text-red-600 bg-red-200/50'} px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center`}>{masalJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
-                                  </div>
-                                </button>
-                             ))}
-                             {masterData.kategori.filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase())).length === 0 && (
-                                <p className="text-slate-400 text-sm italic text-center py-4">Tidak ada tindakan yang cocok.</p>
-                             )}
-                          </div>
-                      </div>
-                   </div>
-                 </div>
 
-                 {/* Langkah 2: Pilih Murid Sistem Sentuh */}
-                 <div className={`transition-all duration-300 ${!selectedKategoriMasal ? 'opacity-50 pointer-events-none' : ''}`}>
-                   <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
-                     <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
-                       <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span> 
-                       Pilih Murid (Tap/Klik Langsung)
-                     </h2>
-                     <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang melanggar. Tidak perlu mengetik!</p>
-                     
-                     <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                       <div className="flex-1 relative">
-                         <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                         <select 
-                           className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-amber-500 focus:outline-none appearance-none cursor-pointer"
-                           value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
-                         >
-                           <option value="">Semua Kelas (Filter by Kelas)</option>
-                           {uniqueClasses.map((c, i, arr) => {
+                      <div className="h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="space-y-2">
+                          {masterData.kategori
+                            .filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
+                            .sort((a, b) => parseInt(a.Poin) - parseInt(b.Poin))
+                            .map(k => (
+                              <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? (masalJenisTab === 'Prestasi' ? 'border-emerald-500 bg-emerald-100 shadow-md ring-2 ring-emerald-500 ring-offset-1' : 'border-amber-500 bg-amber-100 shadow-md ring-2 ring-amber-500 ring-offset-1') : (masalJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-300' : 'border-red-100 bg-red-50/30 hover:border-red-300')}`}>
+                                <div className="flex justify-between items-start gap-2">
+                                  <h5 className="font-bold text-slate-700 text-sm leading-tight">{k.NamaKategori}</h5>
+                                  <span className={`font-black ${masalJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-200/50' : 'text-red-600 bg-red-200/50'} px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center`}>{masalJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
+                                </div>
+                              </button>
+                            ))}
+                          {masterData.kategori.filter(k => k.Jenis === masalJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase())).length === 0 && (
+                            <p className="text-slate-400 text-sm italic text-center py-4">Tidak ada tindakan yang cocok.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Langkah 2: Pilih Murid Sistem Sentuh */}
+                  <div className={`transition-all duration-300 ${!selectedKategoriMasal ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
+                      <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
+                        <span className="bg-slate-800 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">2</span>
+                        Pilih Murid (Tap/Klik Langsung)
+                      </h2>
+                      <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama murid</b> yang melanggar. Tidak perlu mengetik!</p>
+
+                      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                        <div className="flex-1 relative">
+                          <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                          <select
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-amber-500 focus:outline-none appearance-none cursor-pointer"
+                            value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
+                          >
+                            <option value="">Semua Kelas (Filter by Kelas)</option>
+                            {uniqueClasses.map((c, i, arr) => {
                               const prefix = c.split(' ')[0];
-                              const prevPrefix = i > 0 ? arr[i-1].split(' ')[0] : null;
+                              const prevPrefix = i > 0 ? arr[i - 1].split(' ')[0] : null;
                               const bg = prefix === 'X' ? 'bg-blue-50 text-blue-900' : prefix === 'XI' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900';
                               return (
-                                 <React.Fragment key={c}>
-                                    {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
-                                    <option value={c} className={bg}>Kelas {c}</option>
-                                 </React.Fragment>
+                                <React.Fragment key={c}>
+                                  {prefix !== prevPrefix && <option disabled className="bg-slate-200 text-slate-800 font-black text-center">-- KELAS {prefix} --</option>}
+                                  <option value={c} className={bg}>Kelas {c}</option>
+                                </React.Fragment>
                               );
-                           })}
-                         </select>
-                       </div>
-                       <div className="flex-1 relative">
-                         <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                         <input 
-                           type="text" placeholder="Atau cari nama (Opsional)..." 
-                           className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-amber-500 focus:outline-none"
-                           value={searchNama} onChange={e => setSearchNama(e.target.value)}
-                         />
-                       </div>
-                     </div>
+                            })}
+                          </select>
+                        </div>
+                        <div className="flex-1 relative">
+                          <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                          <input
+                            type="text" placeholder="Atau cari nama (Opsional)..."
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-amber-500 focus:outline-none"
+                            value={searchNama} onChange={e => setSearchNama(e.target.value)}
+                          />
+                        </div>
+                      </div>
 
-                     <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
+                      <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
                         {availableStudentsForMasal.length === 0 ? (
-                           <div className="text-center py-10 text-slate-400 font-medium">Tidak ada murid yang sesuai kriteria pencarian.</div>
+                          <div className="text-center py-10 text-slate-400 font-medium">Tidak ada murid yang sesuai kriteria pencarian.</div>
                         ) : (
-                           <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
-                             {availableStudentsForMasal.map(s => {
-                               const isSelected = cartMasalSiswa.find(x => x.NISN === s.NISN);
-                               return (
-                                 <button 
-                                   key={s.NISN} onClick={() => toggleStudentMasal(s)}
-                                   className={`px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start ${isSelected ? 'bg-amber-500 border-amber-600 text-white shadow-lg transform scale-[1.02]' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm'}`}
-                                 >
-                                   <span>{s.Nama}</span>
-                                   <span className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-amber-100' : 'text-slate-400'}`}>NISN: {s.NISN} &bull; {s.Kelas}</span>
-                                 </button>
-                               )
-                             })}
-                           </div>
+                          <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
+                            {availableStudentsForMasal.map(s => {
+                              const isSelected = cartMasalSiswa.find(x => x.NISN === s.NISN);
+                              return (
+                                <button
+                                  key={s.NISN} onClick={() => toggleStudentMasal(s)}
+                                  className={`px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start ${isSelected ? 'bg-amber-500 border-amber-600 text-white shadow-lg transform scale-[1.02]' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm'}`}
+                                >
+                                  <span>{s.Nama}</span>
+                                  <span className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-amber-100' : 'text-slate-400'}`}>NISN: {s.NISN} &bull; {s.Kelas}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
                         )}
-                     </div>
-                   </div>
-                 </div>
+                      </div>
+                    </div>
+                  </div>
 
-               </div>
+                </div>
 
-               <div className="lg:col-span-5">
-                 {/* Keranjang Masal */}
-                 <div className="bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 border border-slate-200 shadow-sm flex flex-col h-[80vh]">
+                <div className="lg:col-span-5">
+                  {/* Keranjang Masal */}
+                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 border border-slate-200 shadow-sm flex flex-col h-[80vh]">
                     <h3 className="text-lg font-bold mb-4 text-slate-800 border-b border-slate-100 pb-4">
                       Daftar Eksekusi <span className="text-amber-600">({cartMasalSiswa.length} Murid)</span>
                     </h3>
-                    
+
                     {selectedKategoriMasal && (
                       <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex items-center gap-3">
-                         <div className="w-10 h-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center font-black">{selectedKategoriMasal.Poin}</div>
-                         <div>
-                           <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Tindakan massal:</p>
-                           <p className="font-bold text-slate-800">{selectedKategoriMasal.NamaKategori}</p>
-                         </div>
+                        <div className="w-10 h-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center font-black">{selectedKategoriMasal.Poin}</div>
+                        <div>
+                          <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Tindakan massal:</p>
+                          <p className="font-bold text-slate-800">{selectedKategoriMasal.NamaKategori}</p>
+                        </div>
                       </div>
                     )}
 
@@ -1192,7 +1207,7 @@
                       {cartMasalSiswa.length === 0 ? (
                         <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                           <i className="fa-solid fa-hand-pointer text-4xl mb-3 opacity-30"></i>
-                          <p className="text-sm font-medium">Belum ada murid yang dipilih.<br/>Sentuh/klik nama murid di sebelah kiri.</p>
+                          <p className="text-sm font-medium">Belum ada murid yang dipilih.<br />Sentuh/klik nama murid di sebelah kiri.</p>
                         </div>
                       ) : (
                         cartMasalSiswa.map((s, idx) => (
@@ -1204,154 +1219,154 @@
                                 <p className="text-[10px] font-mono text-slate-500">{s.NISN} &bull; {s.Kelas}</p>
                               </div>
                             </div>
-                            <button onClick={()=>setCartMasalSiswa(cartMasalSiswa.filter(x=>x.uniqueId!==s.uniqueId))} className="text-red-400 hover:text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                            <button onClick={() => setCartMasalSiswa(cartMasalSiswa.filter(x => x.uniqueId !== s.uniqueId))} className="text-red-400 hover:text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"><i className="fa-solid fa-xmark"></i></button>
                           </li>
                         ))
                       )}
                     </ul>
 
-                    <button onClick={submitMasal} disabled={submitting || cartMasalSiswa.length===0} className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2">
+                    <button onClick={submitMasal} disabled={submitting || cartMasalSiswa.length === 0} className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2">
                       {submitting ? 'Menyimpan...' : <><i className="fa-solid fa-floppy-disk"></i> Simpan Poin ({cartMasalSiswa.length} Murid)</>}
                     </button>
-                 </div>
-               </div>
-            </div>
-
-          ) : (
-
-            /* --- 📍 MODE INDIVIDU --- */
-            <div className="grid lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-7 space-y-6">
-                
-                {/* 1. Pilih Murid */}
-                <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm relative z-20">
-                  <h2 className="text-lg font-bold mb-5 flex items-center gap-3 text-slate-800">
-                    <div className="p-2 bg-blue-100 rounded-xl text-blue-600"><i className="fa-solid fa-user w-5 text-center"></i></div>
-                    Siapa murid yang akan dicatat?
-                  </h2>
-                  
-                  {!selectedSiswa ? (
-                    <StudentSelector students={masterData.siswa} onSelect={(s) => setSelectedSiswa(s)} />
-                  ) : (
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 flex justify-between items-center shadow-inner">
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-blue-200 shadow-sm">
-                            <i className="fa-solid fa-user-check text-xl text-blue-600"></i>
-                         </div>
-                         <div>
-                           <h3 className="text-xl font-bold text-slate-800">{selectedSiswa.Nama}</h3>
-                           <p className="text-xs text-slate-600 mt-1"><span className="font-mono bg-white px-1.5 rounded border border-slate-200">{selectedSiswa.NISN}</span> &bull; {selectedSiswa.Kelas}</p>
-                         </div>
-                      </div>
-                      <button onClick={() => { setSelectedSiswa(null); setCartIndividu([]); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-bold shadow-sm">Ganti</button>
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Kategori Split Layout with Search */}
-                <div className={`transition-all duration-500 ${selectedSiswa ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-4'}`}>
-                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
-                    <h2 className="text-lg font-bold mb-2 flex items-center gap-3 text-slate-800">
-                      <div className="p-2 bg-green-100 rounded-xl text-green-600"><i className="fa-solid fa-list-check w-5 text-center"></i></div>
-                      Pilih Tindakan
-                    </h2>
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
-                      <p className="text-sm text-slate-500">Pilih dari daftar atau gunakan kolom pencarian di bawah untuk mempercepat.</p>
-                      <div className="flex bg-slate-100 p-1 rounded-xl">
-                         <button onClick={() => setIndividuJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
-                         <button onClick={() => setIndividuJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
-                      </div>
-                    </div>
-                    
-                    {/* Search Box */}
-                    <div className="relative mb-6">
-                      <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                      <input 
-                        type="text" 
-                        placeholder="Cari tindakan (ketik min. 2 huruf, misal: rokok, upacara)..."
-                        value={searchKategoriIndividu}
-                        onChange={(e) => setSearchKategoriIndividu(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
-                      />
-                    </div>
-
-                    <div>
-                      <h3 className={`text-sm font-bold uppercase tracking-widest ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 border-emerald-100' : 'text-red-600 border-red-100'} mb-3 border-b pb-2 flex items-center gap-2`}>
-                         <i className={`fa-solid ${individuJenisTab === 'Prestasi' ? 'fa-award' : 'fa-triangle-exclamation'}`}></i> {individuJenisTab}
-                      </h3>
-                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                         {masterData.kategori
-                            .filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
-                            .sort((a,b) => individuJenisTab === 'Prestasi' ? parseInt(a.Poin) - parseInt(b.Poin) : parseInt(b.Poin) - parseInt(a.Poin))
-                            .map(k => (
-                            <div key={k.ID} onClick={() => addToCart(k)} className={`border ${individuJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-400' : 'border-red-100 bg-red-50/30 hover:border-red-400'} rounded-xl p-3 cursor-pointer hover:shadow-md transition-all group flex flex-col justify-between`}>
-                              <div className="flex justify-between items-start mb-1">
-                                <h4 className={`font-bold text-slate-700 text-sm ${individuJenisTab === 'Prestasi' ? 'group-hover:text-emerald-700' : 'group-hover:text-red-700'} leading-snug`}>{k.NamaKategori}</h4>
-                                <span className={`font-black ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-100' : 'text-red-600 bg-red-100'} px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]`}>{individuJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
-                              </div>
-                            </div>
-                         ))}
-                         {masterData.kategori.filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
-                           <p className="text-slate-400 text-xs italic">Tidak ada {individuJenisTab.toLowerCase()} yang cocok dengan pencarian.</p>
-                         )}
-                      </div>
-                    </div>
-
                   </div>
                 </div>
-
               </div>
 
-              {/* 3. Keranjang Input (Cart) */}
-              <div className="lg:col-span-5">
-                <div className={`bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 transition-all duration-500 border ${cartIndividu.length > 0 ? 'border-blue-300 shadow-xl' : 'border-slate-200 shadow-sm'}`}>
-                   <button className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-4 rounded-xl font-bold flex items-center justify-between group transition-colors">
-                     <span>Draft Refleksi Murid</span>
-                     <i className="fa-solid fa-chevron-right group-hover:translate-x-1 transition-transform"></i>
-                     <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">{cartIndividu.length} Item</span>
-                   </button>
+            ) : (
 
-                   {cartIndividu.length === 0 ? (
-                     <div className="py-12 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-                       <i className="fa-solid fa-box-open text-4xl mx-auto mb-4 opacity-50 text-slate-300"></i>
-                       <p className="text-sm font-medium">Keranjang masih kosong.</p>
-                     </div>
-                   ) : (
-                     <div className="space-y-6">
-                       <ul className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
-                         {cartIndividu.map((c) => (
-                           <li key={c.uniqueId} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center gap-3 animate-[fade-in_0.2s_ease-out] shadow-sm">
-                             <div className={`w-1.5 h-6 rounded-full flex-shrink-0 ${parseInt(c.Poin)<0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
-                             <div className="flex-1 min-w-0">
-                               <p className="text-sm font-bold text-slate-700 truncate">{c.NamaKategori}</p>
-                             </div>
-                             <div className={`font-mono font-black text-sm ${parseInt(c.Poin)<0 ? 'text-red-500' : 'text-green-500'}`}>{parseInt(c.Poin)>0?'+'+c.Poin:c.Poin}</div>
-                             <button onClick={()=>setCartIndividu(cartIndividu.filter(x=>x.uniqueId!==c.uniqueId))} className="text-slate-400 hover:text-red-500 ml-1 p-1"><i className="fa-solid fa-xmark"></i></button>
-                           </li>
-                         ))}
-                       </ul>
+              /* --- 📍 MODE INDIVIDU --- */
+              <div className="grid lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-7 space-y-6">
 
-                       <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-                         <span className="text-xs text-slate-500 font-bold uppercase tracking-wide">Total Poin:</span>
-                         <span className={`text-xl font-black ${cartIndividu.reduce((a,c)=>a+parseInt(c.Poin),0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                           {cartIndividu.reduce((a,c)=>a+parseInt(c.Poin),0)}
-                         </span>
-                       </div>
+                  {/* 1. Pilih Murid */}
+                  <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm relative z-20">
+                    <h2 className="text-lg font-bold mb-5 flex items-center gap-3 text-slate-800">
+                      <div className="p-2 bg-blue-100 rounded-xl text-blue-600"><i className="fa-solid fa-user w-5 text-center"></i></div>
+                      Siapa murid yang akan dicatat?
+                    </h2>
 
-                       <button onClick={submitIndividu} disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50">
-                         {submitting ? 'Menyimpan...' : 'Kirim ke Sistem'}
-                       </button>
-                     </div>
-                   )}
+                    {!selectedSiswa ? (
+                      <StudentSelector students={masterData.siswa} onSelect={(s) => setSelectedSiswa(s)} />
+                    ) : (
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 flex justify-between items-center shadow-inner">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-blue-200 shadow-sm">
+                            <i className="fa-solid fa-user-check text-xl text-blue-600"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-slate-800">{selectedSiswa.Nama}</h3>
+                            <p className="text-xs text-slate-600 mt-1"><span className="font-mono bg-white px-1.5 rounded border border-slate-200">{selectedSiswa.NISN}</span> &bull; {selectedSiswa.Kelas}</p>
+                          </div>
+                        </div>
+                        <button onClick={() => { setSelectedSiswa(null); setCartIndividu([]); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-bold shadow-sm">Ganti</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Kategori Split Layout with Search */}
+                  <div className={`transition-all duration-500 ${selectedSiswa ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-4'}`}>
+                    <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
+                      <h2 className="text-lg font-bold mb-2 flex items-center gap-3 text-slate-800">
+                        <div className="p-2 bg-green-100 rounded-xl text-green-600"><i className="fa-solid fa-list-check w-5 text-center"></i></div>
+                        Pilih Tindakan
+                      </h2>
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
+                        <p className="text-sm text-slate-500">Pilih dari daftar atau gunakan kolom pencarian di bawah untuk mempercepat.</p>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                          <button onClick={() => setIndividuJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
+                          <button onClick={() => setIndividuJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
+                        </div>
+                      </div>
+
+                      {/* Search Box */}
+                      <div className="relative mb-6">
+                        <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                          type="text"
+                          placeholder="Cari tindakan (ketik min. 2 huruf, misal: rokok, upacara)..."
+                          value={searchKategoriIndividu}
+                          onChange={(e) => setSearchKategoriIndividu(e.target.value)}
+                          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
+                        />
+                      </div>
+
+                      <div>
+                        <h3 className={`text-sm font-bold uppercase tracking-widest ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 border-emerald-100' : 'text-red-600 border-red-100'} mb-3 border-b pb-2 flex items-center gap-2`}>
+                          <i className={`fa-solid ${individuJenisTab === 'Prestasi' ? 'fa-award' : 'fa-triangle-exclamation'}`}></i> {individuJenisTab}
+                        </h3>
+                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                          {masterData.kategori
+                            .filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
+                            .sort((a, b) => individuJenisTab === 'Prestasi' ? parseInt(a.Poin) - parseInt(b.Poin) : parseInt(b.Poin) - parseInt(a.Poin))
+                            .map(k => (
+                              <div key={k.ID} onClick={() => addToCart(k)} className={`border ${individuJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-400' : 'border-red-100 bg-red-50/30 hover:border-red-400'} rounded-xl p-3 cursor-pointer hover:shadow-md transition-all group flex flex-col justify-between`}>
+                                <div className="flex justify-between items-start mb-1">
+                                  <h4 className={`font-bold text-slate-700 text-sm ${individuJenisTab === 'Prestasi' ? 'group-hover:text-emerald-700' : 'group-hover:text-red-700'} leading-snug`}>{k.NamaKategori}</h4>
+                                  <span className={`font-black ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-100' : 'text-red-600 bg-red-100'} px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]`}>{individuJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
+                                </div>
+                              </div>
+                            ))}
+                          {masterData.kategori.filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
+                            <p className="text-slate-400 text-xs italic">Tidak ada {individuJenisTab.toLowerCase()} yang cocok dengan pencarian.</p>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* 3. Keranjang Input (Cart) */}
+                <div className="lg:col-span-5">
+                  <div className={`bg-white rounded-[2rem] p-6 lg:p-8 sticky top-24 transition-all duration-500 border ${cartIndividu.length > 0 ? 'border-blue-300 shadow-xl' : 'border-slate-200 shadow-sm'}`}>
+                    <button className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-4 rounded-xl font-bold flex items-center justify-between group transition-colors">
+                      <span>Draft Refleksi Murid</span>
+                      <i className="fa-solid fa-chevron-right group-hover:translate-x-1 transition-transform"></i>
+                      <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">{cartIndividu.length} Item</span>
+                    </button>
+
+                    {cartIndividu.length === 0 ? (
+                      <div className="py-12 text-center text-slate-400 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <i className="fa-solid fa-box-open text-4xl mx-auto mb-4 opacity-50 text-slate-300"></i>
+                        <p className="text-sm font-medium">Keranjang masih kosong.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <ul className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
+                          {cartIndividu.map((c) => (
+                            <li key={c.uniqueId} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center gap-3 animate-[fade-in_0.2s_ease-out] shadow-sm">
+                              <div className={`w-1.5 h-6 rounded-full flex-shrink-0 ${parseInt(c.Poin) < 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-700 truncate">{c.NamaKategori}</p>
+                              </div>
+                              <div className={`font-mono font-black text-sm ${parseInt(c.Poin) < 0 ? 'text-red-500' : 'text-green-500'}`}>{parseInt(c.Poin) > 0 ? '+' + c.Poin : c.Poin}</div>
+                              <button onClick={() => setCartIndividu(cartIndividu.filter(x => x.uniqueId !== c.uniqueId))} className="text-slate-400 hover:text-red-500 ml-1 p-1"><i className="fa-solid fa-xmark"></i></button>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <span className="text-xs text-slate-500 font-bold uppercase tracking-wide">Total Poin:</span>
+                          <span className={`text-xl font-black ${cartIndividu.reduce((a, c) => a + parseInt(c.Poin), 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {cartIndividu.reduce((a, c) => a + parseInt(c.Poin), 0)}
+                          </span>
+                        </div>
+
+                        <button onClick={submitIndividu} disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50">
+                          {submitting ? 'Menyimpan...' : 'Kirim ke Sistem'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           </div>
           {/* BOTTOM NAV MOBILE */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-between px-2 pb-safe pt-2 z-50 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
             {menuItems.map(m => (
-              <button 
+              <button
                 key={m.id} onClick={() => setActiveMenu(m.id)}
                 className={`relative flex flex-col items-center justify-center w-full py-2 rounded-xl transition-all ${activeMenu === m.id ? 'text-blue-700' : 'text-slate-400 hover:bg-slate-50'}`}
               >
@@ -1363,7 +1378,7 @@
               </button>
             ))}
           </nav>
-          
+
           {showPinModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-6 w-full max-w-lg max-h-[80vh] flex flex-col shadow-xl">
@@ -1374,30 +1389,30 @@
                   <input type="text" placeholder="Cari pelanggaran..." value={searchPinModal} onChange={(e) => setSearchPinModal(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700" />
                 </div>
                 <div className="overflow-y-auto flex-1 pr-2 space-y-2">
-                   {masterData.kategori.filter(k=>k.Jenis==='Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchPinModal.toLowerCase())).map(k => (
-                      <label key={k.NamaKategori} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
-                         <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
-                            checked={pinnedNames.includes(k.NamaKategori)}
-                            onChange={(e) => {
-                               if (e.target.checked) setPinnedNames([...pinnedNames, k.NamaKategori]);
-                               else setPinnedNames(pinnedNames.filter(n => n !== k.NamaKategori));
-                            }}
-                         />
-                         <span className="font-medium text-slate-700">{k.NamaKategori}</span>
-                      </label>
-                   ))}
+                  {masterData.kategori.filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchPinModal.toLowerCase())).map(k => (
+                    <label key={k.NamaKategori} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={pinnedNames.includes(k.NamaKategori)}
+                        onChange={(e) => {
+                          if (e.target.checked) setPinnedNames([...pinnedNames, k.NamaKategori]);
+                          else setPinnedNames(pinnedNames.filter(n => n !== k.NamaKategori));
+                        }}
+                      />
+                      <span className="font-medium text-slate-700">{k.NamaKategori}</span>
+                    </label>
+                  ))}
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-100 flex gap-3 justify-end">
-                   <button onClick={() => setShowPinModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Tutup</button>
-                   <button onClick={() => {
-                       localStorage.setItem('pinnedKategoriNames', JSON.stringify(pinnedNames));
-                       setShowPinModal(false);
-                   }} className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Simpan Pintasan</button>
+                  <button onClick={() => setShowPinModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Tutup</button>
+                  <button onClick={() => {
+                    localStorage.setItem('pinnedKategoriNames', JSON.stringify(pinnedNames));
+                    setShowPinModal(false);
+                  }} className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">Simpan Pintasan</button>
                 </div>
               </div>
             </div>
           )}
-          
+
         </div>
       );
     }
@@ -1416,15 +1431,15 @@
 
       const basePoin = 300;
       const totalPoin = history.reduce((acc, curr) => {
-         const p = Math.abs(parseInt(curr.poin || curr.Poin || 0));
-         if (curr.jenis === 'Prestasi' || curr.Jenis === 'Prestasi') return acc + p;
-         if (curr.jenis === 'Pelanggaran' || curr.Jenis === 'Pelanggaran') return acc - p;
-         return acc;
-      }, basePoin); 
-      
+        const p = Math.abs(parseInt(curr.poin || curr.Poin || 0));
+        if (curr.jenis === 'Prestasi' || curr.Jenis === 'Prestasi') return acc + p;
+        if (curr.jenis === 'Pelanggaran' || curr.Jenis === 'Pelanggaran') return acc - p;
+        return acc;
+      }, basePoin);
+
       let statusPembinaan = "Aman (Teruskan Karakter Baikmu)"; let colorPembinaan = "text-green-700 bg-green-50 border-green-200"; let iconPembinaan = "fa-solid fa-circle-check";
-      if (totalPoin <= 200 && totalPoin > 100) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; } 
-      else if (totalPoin <= 100 && totalPoin > 50) { statusPembinaan = "Peringatan: Jadwal Pembinaan dengan Guru BK menanti."; colorPembinaan = "text-orange-700 bg-orange-50 border-orange-200"; iconPembinaan = "fa-solid fa-shield-virus"; } 
+      if (totalPoin <= 200 && totalPoin > 100) { statusPembinaan = "Perhatian: Segera temui Wali Kelas untuk Pembinaan."; colorPembinaan = "text-yellow-700 bg-yellow-50 border-yellow-200"; iconPembinaan = "fa-solid fa-triangle-exclamation"; }
+      else if (totalPoin <= 100 && totalPoin > 50) { statusPembinaan = "Peringatan: Jadwal Pembinaan dengan Guru BK menanti."; colorPembinaan = "text-orange-700 bg-orange-50 border-orange-200"; iconPembinaan = "fa-solid fa-shield-virus"; }
       else if (totalPoin <= 50) { statusPembinaan = "Kritis: Pemanggilan Orang Tua (Surat SP)."; colorPembinaan = "text-red-700 bg-red-50 border-red-200"; iconPembinaan = "fa-solid fa-circle-xmark"; }
 
       if (loading) return <div className="text-center py-20 text-blue-500 font-bold">MEMUAT RAPOR KARAKTER...</div>;
@@ -1442,14 +1457,14 @@
             </div>
           </div>
           <div className={`border p-5 rounded-2xl flex items-center gap-4 shadow-sm ${colorPembinaan}`}>
-             <i className={`${iconPembinaan} text-3xl`}></i>
-             <div><h4 className="font-bold text-xs uppercase mb-1">Status Tindak Lanjut</h4><p className="font-bold">{statusPembinaan}</p></div>
+            <i className={`${iconPembinaan} text-3xl`}></i>
+            <div><h4 className="font-bold text-xs uppercase mb-1">Status Tindak Lanjut</h4><p className="font-bold">{statusPembinaan}</p></div>
           </div>
           <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold mb-4 text-slate-800 border-b pb-4"><i className="fa-solid fa-clock-rotate-left text-blue-600"></i> Riwayat Refleksi</h3>
             {history.length === 0 ? <p className="text-center py-10 text-slate-500">Belum ada riwayat tercatat.</p> : (
               <table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="px-5 py-3">Tanggal</th><th className="px-5 py-3">Keterangan</th><th className="px-5 py-3 text-center">Poin</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.Poin}</td></tr>)}</tbody></table>
+                <tbody className="divide-y divide-slate-100">{history.map((h, i) => <tr key={i}><td className="px-5 py-3 font-bold text-slate-800">{h.Tanggal}</td><td className="px-5 py-3 text-slate-600">{h.NamaKategori}</td><td className="px-5 py-3 text-center text-red-500 font-black">{h.Poin}</td></tr>)}</tbody></table>
             )}
           </div>
         </div>
@@ -1460,5 +1475,5 @@
     const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
   </script>
 </body>
-</html>
 
+</html>
