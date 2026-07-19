@@ -30,8 +30,9 @@
     let cachedSiswa = [];
 
     const apiCall = async (action, payload = {}) => {
-      if (action === 'LOGIN_ADMIN' && payload.nip === 'admin') {
-         return { success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'GDS' } };
+      if (action === 'LOGIN_ADMIN') {
+         if (payload.nip === 'admin') return { success: true, user: { nip: 'admin', nama: 'Admin SMANDACIS', role: 'Admin' } };
+         if (payload.nip === 'GTK' && payload.password === 'GTK123') return { success: true, user: { nip: 'GTK', nama: 'Guru / Tenaga Kependidikan', role: 'GTK' } };
       }
       if (action === 'LOGIN_SISWA') {
          if (cachedSiswa.length === 0) {
@@ -158,7 +159,9 @@
         e.preventDefault();
         setLoading(true); setError('');
         try {
-          const res = await apiCall(role === 'Admin' ? 'LOGIN_ADMIN' : 'LOGIN_SISWA', role === 'Admin' ? { nip, password } : { nisn });
+          const actionName = role === 'Siswa' ? 'LOGIN_SISWA' : 'LOGIN_ADMIN';
+          const payloadData = role === 'Siswa' ? { nisn } : { nip, password };
+          const res = await apiCall(actionName, payloadData);
           if (res.success) onLogin(res.user); else setError(res.message);
         } catch (err) { setError('Kesalahan koneksi.'); }
         setLoading(false);
@@ -169,13 +172,14 @@
           <div className="relative z-10">
             <h2 className="text-2xl font-bold mb-8 text-center text-slate-800">Sistem Login</h2>
             
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
-              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Admin')}>Petugas GDS</button>
-              <button className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => setRole('Siswa')}>Murid</button>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8 overflow-x-auto">
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('Admin'); setNip('admin'); setPassword('admin');}}>Admin</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'GTK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('GTK'); setNip('GTK'); setPassword('GTK123');}}>GTK</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => {setRole('Siswa'); setNisn('');}}>Murid</button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              {role === 'Admin' ? (
+              {role !== 'Siswa' ? (
                 <>
                   <div>
                     <label className="block text-xs uppercase tracking-wider mb-2 text-slate-500 font-bold">Username / NIP</label>
@@ -471,13 +475,13 @@
     function DashboardAdmin({ user }) {
       const [masterData, setMasterData] = useState({ siswa: [], kategori: [] });
       const [loading, setLoading] = useState(true);
-      const [activeMenu, setActiveMenu] = useState('overview'); // 'overview' | 'masal' | 'individu' | 'rekap' | 'pembinaan'
+      const [activeMenu, setActiveMenu] = useState(user.role === 'GTK' ? 'masal' : 'overview'); // 'overview' | 'masal' | 'individu' | 'rekap' | 'pembinaan'
       const [submitting, setSubmitting] = useState(false);
       
       const [selectedSiswa, setSelectedSiswa] = useState(null);
       const [cartIndividu, setCartIndividu] = useState([]);
       const [searchKategoriIndividu, setSearchKategoriIndividu] = useState('');
-      
+      const [individuJenisTab, setIndividuJenisTab] = useState('Pelanggaran');      
       const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
       const [pinnedNames, setPinnedNames] = useState(() => JSON.parse(localStorage.getItem('pinnedKategoriNames')) || []);
       const [showPinModal, setShowPinModal] = useState(false);
@@ -709,14 +713,23 @@
 
       if (loading) return <div className="text-center py-20 text-blue-500 animate-pulse font-mono tracking-widest text-lg font-bold">NUJU MILARI DATABASE...</div>;
 
-      const menuItems = [
-        { id: 'overview', icon: 'fa-chart-pie', label: 'Dashboard', color: 'text-indigo-600' },
-        { id: 'masal', icon: 'fa-bolt', label: 'Piket Pagi', color: 'text-amber-500' },
-        { id: 'individu', icon: 'fa-user-pen', label: 'Mode Detail', color: 'text-blue-600' },
-        { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekapitulasi', color: 'text-emerald-600' },
-        { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: visibleCriticalStudents.length },
-        { id: 'panduan', icon: 'fa-book', label: 'Buku Saku', color: 'text-purple-600' }
-      ];
+      let menuItems = [];
+      if (user.role === 'GTK') {
+        menuItems = [
+          { id: 'masal', icon: 'fa-bolt', label: 'Input Massal', color: 'text-amber-500' },
+          { id: 'individu', icon: 'fa-user-pen', label: 'Input Detail', color: 'text-blue-600' },
+          { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekapitulasi', color: 'text-emerald-600' }
+        ];
+      } else {
+        menuItems = [
+          { id: 'overview', icon: 'fa-chart-pie', label: 'Dashboard', color: 'text-indigo-600' },
+          { id: 'masal', icon: 'fa-bolt', label: 'Input Massal', color: 'text-amber-500' },
+          { id: 'individu', icon: 'fa-user-pen', label: 'Input Detail', color: 'text-blue-600' },
+          { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekapitulasi', color: 'text-emerald-600' },
+          { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: visibleCriticalStudents.length },
+          { id: 'panduan', icon: 'fa-gear', label: 'Setting', color: 'text-purple-600' }
+        ];
+      }
 
       return (
         <div className="flex flex-col md:flex-row gap-6 animate-[fade-in_0.4s_ease-out] pb-20 md:pb-0">
@@ -1242,7 +1255,13 @@
                       <div className="p-2 bg-green-100 rounded-xl text-green-600"><i className="fa-solid fa-list-check w-5 text-center"></i></div>
                       Pilih Tindakan
                     </h2>
-                    <p className="text-sm text-slate-500 mb-4">Pilih dari daftar atau gunakan kolom pencarian di bawah untuk mempercepat.</p>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
+                      <p className="text-sm text-slate-500">Pilih dari daftar atau gunakan kolom pencarian di bawah untuk mempercepat.</p>
+                      <div className="flex bg-slate-100 p-1 rounded-xl">
+                         <button onClick={() => setIndividuJenisTab('Pelanggaran')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Pelanggaran' ? 'bg-white shadow-sm text-red-600' : 'text-slate-500 hover:text-slate-700'}`}>Pelanggaran</button>
+                         <button onClick={() => setIndividuJenisTab('Prestasi')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${individuJenisTab === 'Prestasi' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>Prestasi</button>
+                      </div>
+                    </div>
                     
                     {/* Search Box */}
                     <div className="relative mb-6">
@@ -1256,51 +1275,25 @@
                       />
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                      {/* Kolom Kiri: Prestasi */}
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-600 mb-3 border-b border-emerald-100 pb-2 flex items-center gap-2">
-                           <i className="fa-solid fa-award"></i> Prestasi
-                        </h3>
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                           {masterData.kategori
-                              .filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
-                              .sort((a,b) => parseInt(a.Poin) - parseInt(b.Poin))
-                              .map(k => (
-                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-emerald-100 bg-emerald-50/30 rounded-xl p-3 cursor-pointer hover:border-emerald-400 hover:shadow-md transition-all group flex flex-col justify-between">
-                                <div className="flex justify-between items-start mb-1">
-                                  <h4 className="font-bold text-slate-700 text-sm group-hover:text-emerald-700 leading-snug">{k.NamaKategori}</h4>
-                                  <span className="font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]">+{k.Poin}</span>
-                                </div>
+                    <div>
+                      <h3 className={`text-sm font-bold uppercase tracking-widest ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 border-emerald-100' : 'text-red-600 border-red-100'} mb-3 border-b pb-2 flex items-center gap-2`}>
+                         <i className={`fa-solid ${individuJenisTab === 'Prestasi' ? 'fa-award' : 'fa-triangle-exclamation'}`}></i> {individuJenisTab}
+                      </h3>
+                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                         {masterData.kategori
+                            .filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
+                            .sort((a,b) => individuJenisTab === 'Prestasi' ? parseInt(a.Poin) - parseInt(b.Poin) : parseInt(b.Poin) - parseInt(a.Poin))
+                            .map(k => (
+                            <div key={k.ID} onClick={() => addToCart(k)} className={`border ${individuJenisTab === 'Prestasi' ? 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-400' : 'border-red-100 bg-red-50/30 hover:border-red-400'} rounded-xl p-3 cursor-pointer hover:shadow-md transition-all group flex flex-col justify-between`}>
+                              <div className="flex justify-between items-start mb-1">
+                                <h4 className={`font-bold text-slate-700 text-sm ${individuJenisTab === 'Prestasi' ? 'group-hover:text-emerald-700' : 'group-hover:text-red-700'} leading-snug`}>{k.NamaKategori}</h4>
+                                <span className={`font-black ${individuJenisTab === 'Prestasi' ? 'text-emerald-600 bg-emerald-100' : 'text-red-600 bg-red-100'} px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]`}>{individuJenisTab === 'Prestasi' ? '+' : ''}{k.Poin}</span>
                               </div>
-                           ))}
-                           {masterData.kategori.filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
-                             <p className="text-slate-400 text-xs italic">Tidak ada prestasi yang cocok dengan pencarian.</p>
-                           )}
-                        </div>
-                      </div>
-
-                      {/* Kolom Kanan: Pelanggaran */}
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-widest text-red-600 mb-3 border-b border-red-100 pb-2 flex items-center gap-2">
-                           <i className="fa-solid fa-triangle-exclamation"></i> Pelanggaran
-                        </h3>
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                           {masterData.kategori
-                              .filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
-                              .sort((a,b) => parseInt(b.Poin) - parseInt(a.Poin))
-                              .map(k => (
-                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-red-100 bg-red-50/30 rounded-xl p-3 cursor-pointer hover:border-red-400 hover:shadow-md transition-all group flex flex-col justify-between">
-                                <div className="flex justify-between items-start mb-1">
-                                  <h4 className="font-bold text-slate-700 text-sm group-hover:text-red-700 leading-snug">{k.NamaKategori}</h4>
-                                  <span className="font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]">{k.Poin}</span>
-                                </div>
-                              </div>
-                           ))}
-                           {masterData.kategori.filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
-                             <p className="text-slate-400 text-xs italic">Tidak ada pelanggaran yang cocok dengan pencarian.</p>
-                           )}
-                        </div>
+                            </div>
+                         ))}
+                         {masterData.kategori.filter(k => k.Jenis === individuJenisTab && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
+                           <p className="text-slate-400 text-xs italic">Tidak ada {individuJenisTab.toLowerCase()} yang cocok dengan pencarian.</p>
+                         )}
                       </div>
                     </div>
 
