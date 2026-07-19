@@ -164,8 +164,8 @@
 
     function Login({ onLogin }) {
       const [role, setRole] = useState('Admin');
-      const [nip, setNip] = useState('admin');
-      const [password, setPassword] = useState('admin');
+      const [nip, setNip] = useState('');
+      const [password, setPassword] = useState('');
       const [nisn, setNisn] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
@@ -188,8 +188,8 @@
             <h2 className="text-2xl font-bold mb-8 text-center text-slate-800">Sistem Login</h2>
 
             <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8 overflow-x-auto">
-              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('Admin'); setNip('admin'); setPassword('admin'); }}>Admin</button>
-              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'GTK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('GTK'); setNip('GTK'); setPassword('GTK123'); }}>GTK</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('Admin'); setNip(''); setPassword(''); }}>Admin</button>
+              <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'GTK' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('GTK'); setNip(''); setPassword(''); }}>GTK</button>
               <button type="button" className={`flex-1 py-3 px-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${role === 'Siswa' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`} onClick={() => { setRole('Siswa'); setNisn(''); }}>Murid</button>
             </div>
 
