@@ -492,59 +492,67 @@
     }
 
     function StudentSelector({ students, onSelect }) {
-      const [isOpen, setIsOpen] = useState(false);
-      const [search, setSearch] = useState('');
-      const wrapperRef = useRef(null);
-
-      useEffect(() => {
-        function handleClickOutside(event) {
-          if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-      }, [wrapperRef]);
+      const [filterKelas, setFilterKelas] = useState('');
+      const [searchNama, setSearchNama] = useState('');
       
+      const uniqueClasses = useMemo(() => {
+        const setCls = new Set();
+        students.forEach(s => { if (s.Kelas) setCls.add(s.Kelas); });
+        return Array.from(setCls).sort();
+      }, [students]);
+
       const filtered = useMemo(() => {
-        if (!search) return students.slice(0, 50); 
-        const lower = search.toLowerCase();
-        return students.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower) || s.Kelas.toLowerCase().includes(lower)).slice(0, 50);
-      }, [students, search]);
+         let f = students;
+         if (filterKelas) f = f.filter(s => s.Kelas === filterKelas);
+         if (searchNama) {
+            const lower = searchNama.toLowerCase();
+            f = f.filter(s => s.Nama.toLowerCase().includes(lower) || s.NISN.includes(lower));
+         }
+         return f.slice(0, 100); 
+      }, [students, filterKelas, searchNama]);
 
       return (
-        <div ref={wrapperRef} className="relative">
-          <div 
-            className="w-full px-5 py-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 cursor-pointer flex justify-between items-center hover:border-blue-300 hover:shadow-md transition-all"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <i className="fa-solid fa-magnifying-glass text-slate-400"></i>
-              <span className="text-slate-500 font-medium font-bold">Klik untuk mencari & memilih Siswa...</span>
-            </div>
-            <i className={`fa-solid fa-chevron-down transition-transform ${isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400'}`}></i>
-          </div>
-
-          {isOpen && (
-             <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-2 overflow-hidden animate-[fade-in_0.2s_ease-out]">
-                <input 
-                  type="text" autoFocus
-                  className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-2 placeholder-slate-400"
-                  placeholder="Ketik Nama, NISN, atau Kelas..." 
-                  value={search} onChange={e => setSearch(e.target.value)}
-                />
-                <ul className="max-h-72 overflow-y-auto space-y-1 pr-1">
-                  {filtered.map(s => (
-                    <li key={s.NISN} onClick={() => { onSelect(s); setIsOpen(false); setSearch(''); }} className="p-4 bg-white hover:bg-blue-50 cursor-pointer rounded-xl flex justify-between items-center group transition-colors border border-transparent hover:border-blue-200">
-                      <div>
-                        <div className="font-bold text-slate-800 group-hover:text-blue-700 text-lg">{s.Nama}</div>
-                        <div className="text-sm text-slate-500 font-mono mt-0.5">{s.NISN}</div>
-                      </div>
-                      <div className="bg-slate-100 px-3 py-1.5 rounded-full text-xs font-bold text-slate-600 shadow-sm border border-slate-200">{s.Kelas}</div>
-                    </li>
-                  ))}
-                  {filtered.length === 0 && <div className="text-center py-6 text-slate-400 text-sm italic">Tidak ada siswa yang cocok.</div>}
-                </ul>
+        <div>
+           <p className="text-sm text-slate-500 mb-5">Pilih kelas dari *dropdown* di bawah, lalu cukup <b>sentuh/klik nama siswa</b> yang akan dicatat. Tidak perlu mengetik!</p>
+           
+           <div className="flex flex-col sm:flex-row gap-3 mb-5">
+             <div className="flex-1 relative">
+               <i className="fa-solid fa-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+               <select 
+                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold focus:border-blue-500 focus:outline-none appearance-none cursor-pointer"
+                 value={filterKelas} onChange={e => setFilterKelas(e.target.value)}
+               >
+                 <option value="">Semua Kelas (Filter by Kelas)</option>
+                 {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+               </select>
              </div>
-          )}
+             <div className="flex-1 relative">
+               <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+               <input 
+                 type="text" placeholder="Atau cari nama (Opsional)..." 
+                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-200 text-slate-700 focus:border-blue-500 focus:outline-none"
+                 value={searchNama} onChange={e => setSearchNama(e.target.value)}
+               />
+             </div>
+           </div>
+
+           <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200 min-h-[250px]">
+              {filtered.length === 0 ? (
+                 <div className="text-center py-10 text-slate-400 font-medium">Tidak ada siswa yang sesuai kriteria pencarian.</div>
+              ) : (
+                 <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto pr-2">
+                   {filtered.map(s => (
+                       <button 
+                         key={s.NISN} onClick={() => onSelect(s)}
+                         className="px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all flex flex-col items-start bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm hover:bg-blue-50 text-left"
+                       >
+                         <span>{s.Nama}</span>
+                         <span className="text-[10px] font-mono mt-0.5 text-slate-400">NISN: {s.NISN} &bull; {s.Kelas}</span>
+                       </button>
+                   ))}
+                 </div>
+              )}
+           </div>
         </div>
       );
     }
