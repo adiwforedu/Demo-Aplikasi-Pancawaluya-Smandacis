@@ -39,10 +39,13 @@
       return siswa;
     };
 
-    // State global memori untuk demo Rekap Harian
-    let mockTodayRecords = [
-      { id: 1, waktu: '07:15', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', kategori: 'Terlambat Masuk Sekolah', poin: '-5', petugas: 'Admin SMANDACIS' },
-      { id: 2, waktu: '07:20', nama: 'Bunga Lestari', kelas: 'XI/Fase F-2', kategori: 'Atribut Tidak Lengkap', poin: '-10', petugas: 'Admin SMANDACIS' }
+    // State global memori untuk demo Rekapitulasi (mendukung history tanggal)
+    let mockAllRecords = [
+      { id: 1, tanggal: '2026-07-19', waktu: '07:15', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', jenis: 'Pelanggaran', kategori: 'Terlambat Masuk Sekolah', poin: '-5', petugas: 'Admin SMANDACIS' },
+      { id: 2, tanggal: '2026-07-19', waktu: '07:20', nama: 'Bunga Lestari', kelas: 'XI/Fase F-2', jenis: 'Pelanggaran', kategori: 'Atribut Tidak Lengkap', poin: '-10', petugas: 'Admin SMANDACIS' },
+      { id: 3, tanggal: '2026-07-18', waktu: '09:00', nama: 'ALYA ARIFAH SETIAWAN', kelas: 'XII F10', jenis: 'Pelanggaran', kategori: 'Mengancam / mengintimidasi sesama murid', poin: '-50', petugas: 'Admin SMANDACIS' },
+      { id: 4, tanggal: '2026-07-16', waktu: '10:00', nama: 'Ade Kurniawan', kelas: 'X/Fase E-1', jenis: 'Pelanggaran', kategori: 'Membawa/menghisap rokok/vape', poin: '-30', petugas: 'Guru BK' },
+      { id: 5, tanggal: '2025-08-31', waktu: '08:00', nama: 'VALIZA AURA ZASKIA', kelas: 'XI F8', jenis: 'Prestasi', kategori: 'Juara 1 Kejuaraan Tingkat Kota/Kabupaten', poin: '30', petugas: 'Admin SMANDACIS' }
     ];
 
     const apiCall = (action, payload) => {
@@ -93,8 +96,8 @@
               });
             }
             else if (action === 'GET_SISWA_HISTORY') resolve({ success: true, data: [{ Tanggal:'2026-07-16', NamaKategori:'Atribut Tidak Lengkap', Poin:'-10', Petugas:'Admin' }]});
-            else if (action === 'GET_TODAY_RECORDS') {
-              resolve({ success: true, data: mockTodayRecords });
+            else if (action === 'GET_ALL_RECORDS') {
+              resolve({ success: true, data: mockAllRecords });
             }
             else if (action === 'GET_CRITICAL_STUDENTS') {
               const critical = [];
@@ -105,11 +108,11 @@
               const localMockSiswa = generateMockSiswa();
               localMockSiswa.forEach(s => {
                  let startPoin = mockMap[s.NISN] ? mockMap[s.NISN].SisaPoin : 300;
-                 let totalHariIni = 0;
-                 mockTodayRecords.filter(r => r.nama === s.Nama && r.kelas === s.Kelas).forEach(r => {
-                    totalHariIni += parseInt(r.poin) || 0;
+                 let totalHistory = 0;
+                 mockAllRecords.filter(r => r.nama === s.Nama && r.kelas === s.Kelas).forEach(r => {
+                    totalHistory += parseInt(r.poin) || 0;
                  });
-                 let currentPoin = startPoin + totalHariIni;
+                 let currentPoin = startPoin + totalHistory;
                  
                  if (currentPoin <= 150) {
                     let status = 'Guru/Wali Kelas';
@@ -125,21 +128,24 @@
             else if (action === 'SUBMIT_RECORDS') {
               const now = new Date();
               const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+              const dateStr = now.toISOString().split('T')[0];
               
               let duplicateMessages = [];
               let addedCount = 0;
 
               if (payload.mode === 'masal') {
                  payload.siswa.forEach(s => {
-                   const isDuplicate = mockTodayRecords.find(r => r.nama === s.Nama && r.kelas === s.Kelas && r.kategori === payload.kategori.NamaKategori);
+                   const isDuplicate = mockAllRecords.find(r => r.tanggal === dateStr && r.nama === s.Nama && r.kelas === s.Kelas && r.kategori === payload.kategori.NamaKategori);
                    if (isDuplicate) {
                      duplicateMessages.push(s.Nama);
                    } else {
-                     mockTodayRecords.unshift({
+                     mockAllRecords.unshift({
                        id: Date.now() + Math.random(),
+                       tanggal: dateStr,
                        waktu: timeStr,
                        nama: s.Nama,
                        kelas: s.Kelas,
+                       jenis: payload.kategori.Jenis,
                        kategori: payload.kategori.NamaKategori,
                        poin: payload.kategori.Poin,
                        petugas: payload.petugas.nama
@@ -149,15 +155,17 @@
                  });
               } else {
                  payload.records.forEach(r => {
-                   const isDuplicate = mockTodayRecords.find(tr => tr.nama === payload.namaSiswa && tr.kelas === payload.kelas && tr.kategori === r.namaKategori);
+                   const isDuplicate = mockAllRecords.find(tr => tr.tanggal === dateStr && tr.nama === payload.namaSiswa && tr.kelas === payload.kelas && tr.kategori === r.namaKategori);
                    if (isDuplicate) {
                      duplicateMessages.push(r.namaKategori);
                    } else {
-                     mockTodayRecords.unshift({
+                     mockAllRecords.unshift({
                        id: Date.now() + Math.random(),
+                       tanggal: dateStr,
                        waktu: timeStr,
                        nama: payload.namaSiswa,
                        kelas: payload.kelas,
+                       jenis: r.Jenis || (parseInt(r.poin) > 0 ? 'Prestasi' : 'Pelanggaran'),
                        kategori: r.namaKategori,
                        poin: r.poin,
                        petugas: payload.petugas.nama
@@ -542,7 +550,7 @@
     }
 
 
-    // --- DASHBOARD ADMIN ---
+// --- DASHBOARD ADMIN ---
     function DashboardAdmin({ user }) {
       const [masterData, setMasterData] = useState({ siswa: [], kategori: [] });
       const [loading, setLoading] = useState(true);
@@ -551,18 +559,26 @@
       
       const [selectedSiswa, setSelectedSiswa] = useState(null);
       const [cartIndividu, setCartIndividu] = useState([]);
+      const [searchKategoriIndividu, setSearchKategoriIndividu] = useState('');
       
       const [selectedKategoriMasal, setSelectedKategoriMasal] = useState(null);
+      const [searchKategoriMasal, setSearchKategoriMasal] = useState('');
       const [cartMasalSiswa, setCartMasalSiswa] = useState([]);
       const [filterKelas, setFilterKelas] = useState('');
       const [searchNama, setSearchNama] = useState('');
 
-      const [rekapHariIni, setRekapHariIni] = useState([]);
+      const [rekapData, setRekapData] = useState([]);
+      const [filterRekapNama, setFilterRekapNama] = useState('');
+      const [filterRekapKelas, setFilterRekapKelas] = useState('');
+      const [filterRekapKategori, setFilterRekapKategori] = useState('Semua');
+      const [filterRekapDateStart, setFilterRekapDateStart] = useState('');
+      const [filterRekapDateEnd, setFilterRekapDateEnd] = useState('');
+      const [focusedStudentNama, setFocusedStudentNama] = useState(null);
       const [criticalStudents, setCriticalStudents] = useState([]);
 
       const fetchRekap = () => {
-        apiCall('GET_TODAY_RECORDS', {}).then(res => {
-          if (res.success) setRekapHariIni(res.data);
+        apiCall('GET_ALL_RECORDS', {}).then(res => {
+          if (res.success) setRekapData(res.data);
         });
       };
 
@@ -602,9 +618,40 @@
         return groups;
       }, [masterData.kategori]);
 
+
+
       const uniqueClasses = useMemo(() => {
         return [...new Set(masterData.siswa.map(s => s.Kelas))].sort();
       }, [masterData.siswa]);
+
+      const filteredRekapData = useMemo(() => {
+         let data = [...rekapData];
+         if (filterRekapNama) data = data.filter(d => d.nama.toLowerCase().includes(filterRekapNama.toLowerCase()));
+         if (filterRekapKelas) data = data.filter(d => d.kelas === filterRekapKelas);
+         if (filterRekapKategori !== 'Semua') data = data.filter(d => d.jenis === filterRekapKategori);
+         if (filterRekapDateStart) data = data.filter(d => d.tanggal >= filterRekapDateStart);
+         if (filterRekapDateEnd) data = data.filter(d => d.tanggal <= filterRekapDateEnd);
+         return data;
+      }, [rekapData, filterRekapNama, filterRekapKelas, filterRekapKategori, filterRekapDateStart, filterRekapDateEnd]);
+      
+      const { totalPrestasi, totalPelanggaran, criticalAlert } = useMemo(() => {
+         let tp = 0;
+         let tpl = 0;
+         let cAlert = false;
+         
+         const dataToSum = focusedStudentNama 
+             ? rekapData.filter(d => d.nama === focusedStudentNama)
+             : filteredRekapData;
+
+         dataToSum.forEach(d => {
+           const p = parseInt(d.poin) || 0;
+           if (p > 0) tp += p;
+           else tpl += Math.abs(p);
+         });
+         
+         if ((filterRekapNama || focusedStudentNama) && tpl >= 300) cAlert = true;
+         return { totalPrestasi: tp, totalPelanggaran: tpl, criticalAlert: cAlert };
+      }, [filteredRekapData, filterRekapNama, focusedStudentNama, rekapData]);
 
       const availableStudentsForMasal = useMemo(() => {
         let filtered = masterData.siswa;
@@ -662,10 +709,9 @@
         { id: 'overview', icon: 'fa-chart-pie', label: 'Dashboard', color: 'text-indigo-600' },
         { id: 'masal', icon: 'fa-bolt', label: 'Piket Pagi', color: 'text-amber-500' },
         { id: 'individu', icon: 'fa-user-pen', label: 'Mode Detail', color: 'text-blue-600' },
-        { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekap Harian', color: 'text-emerald-600' },
+        { id: 'rekap', icon: 'fa-clipboard-list', label: 'Rekapitulasi', color: 'text-emerald-600' },
         { id: 'pembinaan', icon: 'fa-shield-virus', label: 'Peringatan', color: 'text-red-600', badge: criticalStudents.length },
-        { id: 'panduan', icon: 'fa-book', label: 'Buku Saku', color: 'text-purple-600' },
-        { id: 'pengaturan', icon: 'fa-gear', label: 'Pengaturan Poin', color: 'text-slate-600' }
+        { id: 'panduan', icon: 'fa-book', label: 'Buku Saku', color: 'text-purple-600' }
       ];
 
       return (
@@ -707,7 +753,7 @@
                     </div>
                     <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5">
                        <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl"><i className="fa-solid fa-clipboard-check"></i></div>
-                       <div><p className="text-sm font-bold text-slate-500">Aktivitas Hari Ini</p><p className="text-3xl font-black text-slate-800">{rekapHariIni.length}</p></div>
+                       <div><p className="text-sm font-bold text-slate-500">Aktivitas Tersimpan</p><p className="text-3xl font-black text-slate-800">{rekapData.length}</p></div>
                     </div>
                     <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5 relative overflow-hidden">
                        <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-2xl relative z-10"><i className="fa-solid fa-triangle-exclamation"></i></div>
@@ -739,10 +785,9 @@
                     </div>
                  )}
               </div>
-          ) : activeMenu === 'pengaturan' ? (
-              <PengaturanPoin masterData={masterData} setMasterData={setMasterData} />
           ) : activeMenu === 'panduan' ? (
-              <div className="bg-white rounded-[2rem] p-6 lg:p-10 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
+              <div className="space-y-8 animate-[fade-in_0.3s_ease-out]">
+                 <div className="bg-white rounded-[2rem] p-6 lg:p-10 border border-slate-200 shadow-sm">
                  <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
                     <div className="bg-purple-100 text-purple-600 p-4 rounded-2xl"><i className="fa-solid fa-book-open text-2xl"></i></div>
                     <div>
@@ -786,6 +831,9 @@
                     </div>
                  </div>
               </div>
+              
+              <PengaturanPoin masterData={masterData} setMasterData={setMasterData} />
+            </div>
           ) : activeMenu === 'pembinaan' ? (
             
             /* --- ðŸ›¡ï¸ MODE DAFTAR PEMBINAAN --- */
@@ -834,54 +882,133 @@
 
           ) : activeMenu === 'rekap' ? (
             
-            /* --- ðŸ“… MODE REKAP HARI INI --- */
-            <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm animate-[fade-in_0.3s_ease-out]">
-               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
-                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                    <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600"><i className="fa-solid fa-calendar-day w-5 text-center"></i></div>
-                    Daftar Pelanggaran & Prestasi Hari Ini
-                  </h2>
-                  <button onClick={fetchRekap} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 text-sm font-bold flex items-center gap-2 shadow-sm">
-                    <i className="fa-solid fa-rotate text-emerald-600"></i> Segarkan Data
-                  </button>
-               </div>
-               
-               <p className="text-sm text-slate-500 mb-6">Tabel ini menampilkan daftar tindakan siswa yang diinput oleh seluruh tim GDS pada hari ini. Sangat berguna untuk memitigasi langkah pembinaan sebelum data direkap ke sheet akumulasi bulanan.</p>
-
-               <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-                 <table className="w-full text-sm text-left">
-                   <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                     <tr>
-                       <th className="px-5 py-4">Waktu</th>
-                       <th className="px-5 py-4">Nama Siswa</th>
-                       <th className="px-5 py-4">Kelas</th>
-                       <th className="px-5 py-4">Tindakan / Karakter</th>
-                       <th className="px-5 py-4 text-center">Poin</th>
-                       <th className="px-5 py-4">Petugas GDS</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-100">
-                      {rekapHariIni.length === 0 ? (
-                        <tr><td colSpan="6" className="px-5 py-10 text-center text-slate-400 italic">Belum ada data tindakan yang tercatat hari ini.</td></tr>
-                      ) : (
-                        rekapHariIni.map(r => (
-                          <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                             <td className="px-5 py-4 font-mono text-slate-500 text-xs">{r.waktu}</td>
-                             <td className="px-5 py-4 font-bold text-slate-800">{r.nama}</td>
-                             <td className="px-5 py-4 text-slate-600"><span className="bg-slate-100 px-2 py-1 rounded-md text-xs font-bold border border-slate-200">{r.kelas}</span></td>
-                             <td className="px-5 py-4 text-slate-600 font-medium">{r.kategori}</td>
-                             <td className="px-5 py-4 text-center">
-                               <span className={`inline-block border px-2 py-1 rounded-md font-black text-xs ${parseInt(r.poin) < 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
-                                 {parseInt(r.poin) > 0 ? `+${r.poin}` : r.poin}
-                               </span>
-                             </td>
-                             <td className="px-5 py-4 text-slate-400 text-xs font-medium">{r.petugas}</td>
+            /* --- 📊 MODE REKAPITULASI (HISTORY & FILTER) --- */
+            <div className="bg-slate-100 min-h-screen rounded-[2rem] overflow-hidden border border-slate-200 animate-[fade-in_0.3s_ease-out]">
+                {/* Banner */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 sm:p-12 text-white relative">
+                   <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+                   <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                     <div>
+                       <p className="text-slate-300 tracking-widest text-xs sm:text-sm font-bold mb-1 uppercase">Rekapitulasi</p>
+                       <h2 className="text-2xl sm:text-4xl font-black leading-tight">PEMBENTUKAN KARAKTER<br/>PANCA WALUYA</h2>
+                       <p className="text-slate-400 mt-2 text-xs sm:text-sm">SMAN 2 Ciamis - Sistem Informasi Pemantauan Karakter</p>
+                     </div>
+                     <button onClick={fetchRekap} className="bg-white/10 w-full md:w-auto hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl transition-all shadow-lg backdrop-blur-sm font-bold flex justify-center items-center gap-2">
+                       <i className="fa-solid fa-rotate"></i> Segarkan Data
+                     </button>
+                   </div>
+                </div>
+                
+                <div className="p-6 sm:p-8">
+                  {/* Filters & Summary */}
+                  <div className="flex flex-col lg:flex-row gap-6 mb-8">
+                     {/* Filter Panel */}
+                     <div className="flex-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end">
+                        <div className="w-full sm:flex-1 min-w-[150px]">
+                           <label className="block text-xs font-bold text-slate-500 mb-1">Nama Siswa</label>
+                           <input type="text" value={filterRekapNama} onChange={(e)=>setFilterRekapNama(e.target.value)} placeholder="Semua Siswa..." className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                        </div>
+                        <div className="w-full sm:w-32 flex gap-4 sm:block">
+                          <div className="flex-1">
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
+                             <select value={filterRekapKelas} onChange={(e)=>setFilterRekapKelas(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                               <option value="">Semua</option>
+                               {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                             </select>
+                          </div>
+                          <div className="flex-1 sm:hidden">
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                             <select value={filterRekapKategori} onChange={(e)=>setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                               <option value="Semua">Semua</option>
+                               <option value="Prestasi">Prestasi</option>
+                               <option value="Pelanggaran">Pelanggaran</option>
+                             </select>
+                          </div>
+                        </div>
+                        <div className="hidden sm:block w-40">
+                           <label className="block text-xs font-bold text-slate-500 mb-1">Kategori</label>
+                           <select value={filterRekapKategori} onChange={(e)=>setFilterRekapKategori(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                             <option value="Semua">Semua</option>
+                             <option value="Prestasi">Prestasi</option>
+                             <option value="Pelanggaran">Pelanggaran</option>
+                           </select>
+                        </div>
+                        <div className="w-full sm:flex-1 min-w-[200px] flex gap-2">
+                           <div className="flex-1">
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Dari Tanggal</label>
+                             <input type="date" value={filterRekapDateStart} onChange={(e)=>setFilterRekapDateStart(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                           </div>
+                           <div className="flex-1">
+                             <label className="block text-xs font-bold text-slate-500 mb-1">Sampai Tanggal</label>
+                             <input type="date" value={filterRekapDateEnd} onChange={(e)=>setFilterRekapDateEnd(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                           </div>
+                        </div>
+                     </div>
+                     
+                     {/* Summary Cards */}
+                     <div className="flex gap-3 sm:gap-4 w-full lg:w-auto">
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 p-4 sm:p-5 rounded-2xl shadow-sm flex-1 sm:w-40 flex flex-col justify-center items-center text-center">
+                           <p className="text-emerald-700 font-bold text-xs sm:text-sm mb-1">
+                              Prestasi {focusedStudentNama && <span className="block text-[10px] bg-emerald-200/50 rounded px-1 mt-1 truncate max-w-[120px] mx-auto">{focusedStudentNama}</span>}
+                           </p>
+                           <p className="text-3xl sm:text-4xl font-black text-emerald-600">{totalPrestasi}</p>
+                        </div>
+                        <div className={`border p-4 sm:p-5 rounded-2xl shadow-sm flex-1 sm:w-40 flex flex-col justify-center items-center text-center transition-all relative ${criticalAlert ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200 text-red-600'}`}>
+                           <p className={`font-bold text-xs sm:text-sm mb-1 ${criticalAlert ? 'text-red-100' : 'text-red-700'}`}>
+                              Pelanggaran {focusedStudentNama && <span className={`block text-[10px] rounded px-1 mt-1 truncate max-w-[120px] mx-auto ${criticalAlert ? 'bg-red-500/50' : 'bg-red-200/50'}`}>{focusedStudentNama}</span>}
+                           </p>
+                           <p className="text-3xl sm:text-4xl font-black">{totalPelanggaran}</p>
+                           {criticalAlert && <div className="absolute -top-3 -right-3 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-bounce border-2 border-white"><i className="fa-solid fa-triangle-exclamation"></i> KRITIS</div>}
+                        </div>
+                     </div>
+                  </div>
+                  
+                  {/* Table */}
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto max-h-[60vh] custom-scrollbar">
+                      <table className="w-full text-sm text-left whitespace-nowrap">
+                        <thead className="bg-slate-900 text-white font-bold sticky top-0 z-10">
+                          <tr>
+                            <th className="px-5 py-4 w-12 text-center">No.</th>
+                            <th className="px-5 py-4">Tanggal</th>
+                            <th className="px-5 py-4">Nama Siswa</th>
+                            <th className="px-5 py-4">Kelas</th>
+                            <th className="px-5 py-4">Kategori</th>
+                            <th className="px-5 py-4">Keterangan</th>
+                            <th className="px-5 py-4 text-center">Poin</th>
+                            <th className="px-5 py-4">Petugas</th>
                           </tr>
-                        ))
-                      )}
-                   </tbody>
-                 </table>
-               </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                           {filteredRekapData.length === 0 ? (
+                             <tr><td colSpan="8" className="px-5 py-10 text-center text-slate-400 italic">Tidak ada data yang sesuai dengan filter.</td></tr>
+                           ) : (
+                             filteredRekapData.map((r, i) => (
+                               <tr key={r.id} onClick={() => setFocusedStudentNama(focusedStudentNama === r.nama ? null : r.nama)} className={`transition-colors cursor-pointer ${focusedStudentNama === r.nama ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}>
+                                  <td className="px-5 py-3 text-center text-slate-400 font-bold">{i + 1}.</td>
+                                  <td className="px-5 py-3 text-slate-600 font-mono text-xs">{r.tanggal ? new Date(r.tanggal).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'} <span className="text-slate-400 ml-1">{r.waktu}</span></td>
+                                  <td className="px-5 py-3 font-bold text-slate-800">{r.nama}</td>
+                                  <td className="px-5 py-3 text-slate-600">{r.kelas}</td>
+                                  <td className="px-5 py-3">
+                                     <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${r.jenis === 'Prestasi' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                       {r.jenis}
+                                     </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-slate-600 max-w-[300px] truncate" title={r.kategori}>{r.kategori}</td>
+                                  <td className="px-5 py-3 text-center">
+                                    <span className={`font-black text-sm ${parseInt(r.poin) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                      {parseInt(r.poin) > 0 ? `+${r.poin}` : r.poin}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-slate-500 text-xs font-medium">{r.petugas}</td>
+                               </tr>
+                             ))
+                           )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
             </div>
 
           ) : activeMenu === 'masal' ? (
@@ -909,20 +1036,59 @@
                      ))}
                    </div>
                    
-                   <select 
-                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-medium text-slate-700 cursor-pointer"
-                     value={selectedKategoriMasal?.ID || ''}
-                     onChange={(e) => setSelectedKategoriMasal(masterData.kategori.find(k=>k.ID===e.target.value))}
-                   >
-                     <option value="" disabled>-- Atau pilih kategori lainnya --</option>
-                     {Object.keys(groupedKategori).map(groupName => (
-                         <optgroup key={groupName} label={groupName}>
-                           {groupedKategori[groupName].map(k => (
-                             <option key={k.ID} value={k.ID}>{k.NamaKategori} ({k.Poin} Poin)</option>
-                           ))}
-                         </optgroup>
-                       ))}
-                   </select>
+                   <div className="mt-6 border-t border-slate-100 pt-6">
+                      <h3 className="text-sm font-bold text-slate-500 mb-4">Atau Cari Tindakan Lainnya:</h3>
+                      <div className="relative mb-4">
+                        <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input 
+                          type="text" 
+                          placeholder="Ketik min. 2 huruf..."
+                          value={searchKategoriMasal}
+                          onChange={(e) => setSearchKategoriMasal(e.target.value)}
+                          className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+                        <div>
+                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2 flex items-center gap-1 border-b border-emerald-100 pb-1">
+                            <i className="fa-solid fa-award"></i> Prestasi
+                          </h4>
+                          <div className="space-y-2">
+                             {masterData.kategori
+                                .filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
+                                .sort((a,b) => parseInt(a.Poin) - parseInt(b.Poin))
+                                .map(k => (
+                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-emerald-500 bg-emerald-100 shadow-md ring-2 ring-emerald-500 ring-offset-1' : 'border-emerald-100 bg-emerald-50/30 hover:border-emerald-300'}`}>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <h5 className="font-bold text-slate-700 text-xs leading-tight">{k.NamaKategori}</h5>
+                                    <span className="font-black text-emerald-600 bg-emerald-200/50 px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center">+{k.Poin}</span>
+                                  </div>
+                                </button>
+                             ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-red-600 mb-2 flex items-center gap-1 border-b border-red-100 pb-1">
+                            <i className="fa-solid fa-triangle-exclamation"></i> Pelanggaran
+                          </h4>
+                          <div className="space-y-2">
+                             {masterData.kategori
+                                .filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriMasal.toLowerCase()))
+                                .sort((a,b) => parseInt(b.Poin) - parseInt(a.Poin))
+                                .map(k => (
+                                <button key={k.ID} onClick={() => setSelectedKategoriMasal(k)} className={`w-full text-left border rounded-xl p-3 transition-all ${selectedKategoriMasal?.ID === k.ID ? 'border-red-500 bg-red-100 shadow-md ring-2 ring-red-500 ring-offset-1' : 'border-red-100 bg-red-50/30 hover:border-red-300'}`}>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <h5 className="font-bold text-slate-700 text-xs leading-tight">{k.NamaKategori}</h5>
+                                    <span className="font-black text-red-600 bg-red-200/50 px-1.5 py-0.5 rounded text-[10px] min-w-[2.5rem] text-center">{k.Poin}</span>
+                                  </div>
+                                </button>
+                             ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                  </div>
 
                  {/* Langkah 2: Pilih Siswa Sistem Sentuh */}
@@ -1057,34 +1223,73 @@
                   )}
                 </div>
 
-                {/* 2. Kategori Grouped */}
+                {/* 2. Kategori Split Layout with Search */}
                 <div className={`transition-all duration-500 ${selectedSiswa ? 'opacity-100 translate-y-0' : 'opacity-30 pointer-events-none translate-y-4'}`}>
                   <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-200 shadow-sm">
                     <h2 className="text-lg font-bold mb-2 flex items-center gap-3 text-slate-800">
                       <div className="p-2 bg-green-100 rounded-xl text-green-600"><i className="fa-solid fa-list-check w-5 text-center"></i></div>
-                      Pilih Tindakan (Dikategorikan)
+                      Pilih Tindakan
                     </h2>
-                    <p className="text-sm text-slate-500 mb-6">Klik pada kartu tindakan di bawah ini untuk memasukkannya ke keranjang draft.</p>
+                    <p className="text-sm text-slate-500 mb-4">Pilih dari daftar atau gunakan kolom pencarian di bawah untuk mempercepat.</p>
+                    
+                    {/* Search Box */}
+                    <div className="relative mb-6">
+                      <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                      <input 
+                        type="text" 
+                        placeholder="Cari tindakan (ketik min. 2 huruf, misal: rokok, upacara)..."
+                        value={searchKategoriIndividu}
+                        onChange={(e) => setSearchKategoriIndividu(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
+                      />
+                    </div>
 
-                    <div className="space-y-6">
-                      {Object.keys(groupedKategori).map(groupName => (
-                        <div key={groupName}>
-                          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-100 pb-2">{groupName}</h3>
-                          <div className="grid sm:grid-cols-2 gap-3">
-                            {groupedKategori[groupName].map(k => (
-                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group bg-white flex flex-col justify-between">
-                                <div className="flex justify-between items-start mb-2">
-                                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${k.Jenis==='Pelanggaran'?'bg-red-50 text-red-600':'bg-green-50 text-green-600'}`}>
-                                    {k.Kriteria}
-                                  </span>
-                                  <span className={`font-black ${k.Jenis==='Pelanggaran'?'text-red-500':'text-green-500'}`}>{parseInt(k.Poin)>0?'+'+k.Poin:k.Poin}</span>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Kolom Kiri: Prestasi */}
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-600 mb-3 border-b border-emerald-100 pb-2 flex items-center gap-2">
+                           <i className="fa-solid fa-award"></i> Prestasi
+                        </h3>
+                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                           {masterData.kategori
+                              .filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
+                              .sort((a,b) => parseInt(a.Poin) - parseInt(b.Poin))
+                              .map(k => (
+                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-emerald-100 bg-emerald-50/30 rounded-xl p-3 cursor-pointer hover:border-emerald-400 hover:shadow-md transition-all group flex flex-col justify-between">
+                                <div className="flex justify-between items-start mb-1">
+                                  <h4 className="font-bold text-slate-700 text-sm group-hover:text-emerald-700 leading-snug">{k.NamaKategori}</h4>
+                                  <span className="font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]">+{k.Poin}</span>
                                 </div>
-                                <h4 className="font-bold text-slate-700 text-sm group-hover:text-blue-600 leading-snug">{k.NamaKategori}</h4>
                               </div>
-                            ))}
-                          </div>
+                           ))}
+                           {masterData.kategori.filter(k => k.Jenis === 'Prestasi' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
+                             <p className="text-slate-400 text-xs italic">Tidak ada prestasi yang cocok dengan pencarian.</p>
+                           )}
                         </div>
-                      ))}
+                      </div>
+
+                      {/* Kolom Kanan: Pelanggaran */}
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-red-600 mb-3 border-b border-red-100 pb-2 flex items-center gap-2">
+                           <i className="fa-solid fa-triangle-exclamation"></i> Pelanggaran
+                        </h3>
+                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                           {masterData.kategori
+                              .filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase()))
+                              .sort((a,b) => parseInt(b.Poin) - parseInt(a.Poin))
+                              .map(k => (
+                              <div key={k.ID} onClick={() => addToCart(k)} className="border border-red-100 bg-red-50/30 rounded-xl p-3 cursor-pointer hover:border-red-400 hover:shadow-md transition-all group flex flex-col justify-between">
+                                <div className="flex justify-between items-start mb-1">
+                                  <h4 className="font-bold text-slate-700 text-sm group-hover:text-red-700 leading-snug">{k.NamaKategori}</h4>
+                                  <span className="font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md text-xs text-center min-w-[3rem]">{k.Poin}</span>
+                                </div>
+                              </div>
+                           ))}
+                           {masterData.kategori.filter(k => k.Jenis === 'Pelanggaran' && k.NamaKategori.toLowerCase().includes(searchKategoriIndividu.toLowerCase())).length === 0 && (
+                             <p className="text-slate-400 text-xs italic">Tidak ada pelanggaran yang cocok dengan pencarian.</p>
+                           )}
+                        </div>
+                      </div>
                     </div>
 
                   </div>
